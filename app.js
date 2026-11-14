@@ -66,6 +66,29 @@
     return `<span class="badge" style="--c:${s.color}">${s.label}</span>`;
   }
 
+  // Sahifa ichidagi tasdiqlash oynasi (brauzer confirm() o'rniga)
+  function ask(message, okLabel = 'Ha', danger = false) {
+    const d = $('#ask'), ok = $('#askOk'), no = $('#askNo');
+    $('#askText').textContent = message;
+    ok.textContent = okLabel; ok.className = 'btn ' + (danger ? 'btn-danger-solid' : 'btn-primary');
+    return new Promise(resolve => {
+      const done = v => { d.close(); ok.onclick = no.onclick = null; resolve(v); };
+      ok.onclick = () => done(true); no.onclick = () => done(false);
+      d.oncancel = e => { e.preventDefault(); done(false); };
+      d.showModal(); no.focus();
+    });
+  }
+
+  async function copyText(text, okMsg) {
+    try { await navigator.clipboard.writeText(text); toast(okMsg); return; } catch {}
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch {}
+    ta.parentNode.removeChild(ta);
+    toast(ok ? okMsg : 'Nusxalab bo\'lmadi');
+  }
+
   let toastTimer;
   function toast(msg) {
     const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -76,15 +99,20 @@
   const view = $('#view');
   let ordersFilter = 'active';
   let ordersQuery = '';
+  let editingId = null;
 
   function route() {
-    const [name, param] = (location.hash.slice(1) || 'home').split('/');
+    const name = location.hash.slice(1) || 'bosh';
     $$('.bottomnav a').forEach(a => a.classList.toggle('active', a.dataset.tab === name));
     window.scrollTo(0, 0);
-    if (name === 'orders') return renderOrders();
-    if (name === 'new') return renderForm(null);
-    if (name === 'edit') return renderForm(orders.find(o => o.id === param) || null);
-    if (name === 'settings') return renderSettings();
+    if (name === 'buyurtmalar') return renderOrders();
+    if (name === 'yangi') return renderForm(null);
+    if (name === 'tahrir') {
+      const o = orders.find(x => x.id === editingId);
+      if (o) return renderForm(o);
+      location.hash = 'buyurtmalar'; return;
+    }
+    if (name === 'sozlamalar') return renderSettings();
     return renderHome();
   }
   window.addEventListener('hashchange', route);
@@ -108,6 +136,10 @@
 
     view.innerHTML = `
       <h1>Bosh sahifa</h1>
+      ${orders.length ? '' : `<div class="card welcome">
+        <b>Xush kelibsiz!</b> Bu yerda gilam buyurtmalarini qabul qilasiz, holatini kuzatasiz va to'lovlarni hisoblaysiz.
+        <div class="actions"><button class="btn btn-primary" data-go="yangi">+ Birinchi buyurtma</button>
+        <button class="btn" id="tryDemo">Namuna bilan ko'rish</button></div></div><br>`}
       <div class="grid-stats">
         <div class="card stat"><div class="label">Bugungi buyurtmalar</div><div class="value">${todayOrders.length}</div></div>
         <div class="card stat"><div class="label">Jarayonda</div><div class="value">${active.length}</div></div>
@@ -121,7 +153,8 @@
       <h2>So'nggi buyurtmalar</h2>
       ${listHtml([...orders].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5), 'Hali buyurtma yo\'q. Yuqoridagi “+ Buyurtma” tugmasini bosing.')}
     `;
-    $$('[data-filter]', view).forEach(b => b.onclick = () => { ordersFilter = b.dataset.filter; location.hash = 'orders'; });
+    $('#tryDemo', view)?.addEventListener('click', addDemo);
+    $$('[data-filter]', view).forEach(b => b.onclick = () => { ordersFilter = b.dataset.filter; location.hash = 'buyurtmalar'; });
     bindList();
   }
 
@@ -129,7 +162,7 @@
     if (!list.length) return `<div class="card empty">${esc(emptyText)}</div>`;
     return `<div class="order-list">${list.map(o => `
       <div class="card order" data-open="${o.id}" tabindex="0" role="button">
-        <div><span class="name">#${o.num} · ${esc(o.customer.name)}</span></div>
+        <div><span class="name">#${o.num} · ${esc(o.customer.name)}</span>${o.demo ? ' <span class="muted small">(namuna)</span>' : ''}</div>
         <div class="sum">${money(orderTotal(o))}</div>
         <div class="meta">${esc(o.customer.phone)} · ${o.items.length} dona · ${orderArea(o).toFixed(1)} m² · ${fmtDate(o.createdAt)}</div>
         <div style="text-align:right">${o.paid ? '' : '<span class="badge unpaid">To\'lanmagan</span> '}${badge(o.status)}</div>
@@ -209,7 +242,7 @@
         <div class="total-box"><span>Jami</span><span class="v" id="total">0 so'm</span></div>
         <div class="actions">
           <button class="btn btn-primary" type="submit" style="flex:1">${existing ? 'Saqlash' : 'Buyurtmani qabul qilish'}</button>
-          <button class="btn" type="button" data-go="${existing ? 'orders' : 'home'}">Bekor qilish</button>
+          <button class="btn" type="button" data-go="${existing ? 'buyurtmalar' : 'bosh'}">Bekor qilish</button>
         </div>
       </form>`;
 
@@ -274,12 +307,12 @@
       };
       if (existing) {
         Object.assign(existing, data, { updatedAt: Date.now() });
-        persistOrders(); toast('Saqlandi'); location.hash = 'orders'; openOrder(existing.id);
+        persistOrders(); toast('Saqlandi'); location.hash = 'buyurtmalar'; openOrder(existing.id);
       } else {
         const created = { ...data, id: uid(), num: nextNum(), createdAt: Date.now(), status: 'new', paid: false, history: [{ status: 'new', at: Date.now() }] };
         orders.push(created); persistOrders();
         toast(`Buyurtma #${created.num} qabul qilindi`);
-        location.hash = 'orders'; openOrder(created.id);
+        location.hash = 'buyurtmalar'; openOrder(created.id);
       }
     };
   }
@@ -327,7 +360,7 @@
         <button class="btn" data-paid>${o.paid ? 'To\'lovni bekor qilish' : '✓ To\'landi'}</button>
         <a class="btn" href="tel:${esc(tel)}">📞 Qo'ng'iroq</a>
         <button class="btn" data-sms>✉️ SMS</button>
-        <button class="btn" data-print>🖨 Chek</button>
+        <button class="btn" data-receipt>📄 Chekni nusxalash</button>
         <button class="btn" data-edit>✎ Tahrirlash</button>
         <button class="btn btn-danger" data-delete>O'chirish</button>
       </div>`;
@@ -349,10 +382,22 @@
         : `Assalomu alaykum, ${o.customer.name}! Buyurtma #${o.num} holati: ${STATUS[o.status].label}. ${settings.companyName}`;
       location.href = `sms:${tel}?body=${encodeURIComponent(text)}`;
     };
-    $('[data-print]', modalBody).onclick = () => window.print();
-    $('[data-edit]', modalBody).onclick = () => { modal.close(); location.hash = 'edit/' + o.id; };
-    $('[data-delete]', modalBody).onclick = () => {
-      if (!confirm(`Buyurtma #${o.num} o'chirilsinmi?`)) return;
+    $('[data-receipt]', modalBody).onclick = () => {
+      const lines = [
+        `${settings.companyName}${settings.companyPhone ? ' · ' + settings.companyPhone : ''}`,
+        `Buyurtma #${o.num} · ${fmtDateTime(o.createdAt)}`,
+        `Mijoz: ${o.customer.name}, ${o.customer.phone}`, '',
+        ...o.items.map(it => `${svcName(it.service)} ${num(it.w)}×${num(it.l)} = ${area(it)} m² — ${money(area(it) * it.price)}`),
+        ...(o.delivery ? [`Yetkazib berish — ${money(o.deliveryFee)}`] : []),
+        ...(o.discount ? [`Chegirma — −${money(o.discount)}`] : []),
+        '', `JAMI: ${money(Math.max(0, orderTotal(o)))}`,
+        `Holat: ${STATUS[o.status].label} · ${o.paid ? 'To\'langan' : 'To\'lanmagan'}`,
+      ];
+      copyText(lines.join('\n'), 'Chek nusxalandi — Telegramga joylashingiz mumkin');
+    };
+    $('[data-edit]', modalBody).onclick = () => { modal.close(); editingId = o.id; location.hash = 'tahrir'; };
+    $('[data-delete]', modalBody).onclick = async () => {
+      if (!await ask(`Buyurtma #${o.num} butunlay o'chirilsinmi?`, 'O\'chirish', true)) return;
       orders = orders.filter(x => x.id !== o.id); persistOrders(); modal.close(); toast('O\'chirildi'); route();
     };
     if (!modal.open) modal.showModal();
@@ -377,10 +422,15 @@
       <div class="card">
         <p class="muted small" style="margin-top:0">Ma'lumotlar shu qurilmada saqlanadi. Zaxira nusxa olib turing.</p>
         <div class="actions" style="margin-top:0">
-          <button class="btn" id="exp">⬇ Zaxira (JSON)</button>
-          <button class="btn" id="csv">⬇ Excel uchun (CSV)</button>
-          <label class="btn">⬆ Zaxiradan tiklash<input id="imp" type="file" accept="application/json" hidden></label>
-          <button class="btn" id="demo">Namuna ma'lumot</button>
+          <button class="btn" id="exp">📋 Zaxirani nusxalash</button>
+          <button class="btn" id="csv">📊 Excel uchun nusxalash</button>
+          <label class="btn" for="imp">⬆ Fayldan tiklash</label><input id="imp" type="file" accept="application/json,.json" hidden>
+          <button class="btn" id="demo">Namuna qo'shish</button>
+          ${orders.some(o => o.demo) ? '<button class="btn btn-danger" id="demoDel">Namunalarni o\'chirish</button>' : ''}
+        </div>
+        <div class="field" style="margin-top:14px"><label for="paste">Zaxira matnini joylab tiklash</label>
+          <textarea id="paste" rows="3" placeholder="Nusxalangan zaxira matnini shu yerga joylang"></textarea></div>
+        <div class="actions" style="margin-top:0"><button class="btn" id="pasteGo">Tiklash</button>
         </div>
       </div>`;
 
@@ -416,45 +466,45 @@
       persistSettings(); toast('Sozlamalar saqlandi'); renderSettings();
     };
 
-    const download = (name, content, type) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([content], { type }));
-      a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    };
-    const stamp = new Date().toISOString().slice(0, 10);
-    $('#exp', view).onclick = () => download(`toza-gilam-${stamp}.json`, JSON.stringify({ orders, settings }, null, 2), 'application/json');
+    $('#exp', view).onclick = () => copyText(JSON.stringify({ orders, settings }), 'Zaxira nusxalandi. Uni xavfsiz joyga saqlang (masalan, Telegram "Saqlangan xabarlar").');
     $('#csv', view).onclick = () => {
-      const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
       const rows = [['№', 'Sana', 'Mijoz', 'Telefon', 'Manzil', 'Soni', 'm²', 'Summa', 'Holat', 'To\'langan']]
         .concat(orders.map(o => [o.num, fmtDate(o.createdAt), o.customer.name, o.customer.phone, o.customer.address,
           o.items.length, orderArea(o).toFixed(2), Math.round(orderTotal(o)), STATUS[o.status]?.label, o.paid ? 'Ha' : 'Yo\'q']));
-      download(`toza-gilam-${stamp}.csv`, '﻿' + rows.map(r => r.map(q).join(';')).join('\n'), 'text/csv');
+      copyText(rows.map(r => r.map(c => String(c ?? '').replace(/[\t\n]/g, ' ')).join('\t')).join('\n'), 'Jadval nusxalandi — Excelga joylang (Ctrl+V)');
     };
-    $('#imp', view).onchange = async e => {
-      const file = e.target.files[0]; if (!file) return;
-      try {
-        const data = JSON.parse(await file.text());
-        if (!Array.isArray(data.orders)) throw new Error();
-        if (!confirm(`${data.orders.length} ta buyurtma tiklansinmi? Joriy ma'lumotlar almashtiriladi.`)) return;
-        orders = data.orders; if (data.settings) settings = { ...DEFAULT_SETTINGS, ...data.settings };
-        persistOrders(); persistSettings(); toast('Tiklandi'); renderSettings();
-      } catch { toast('Fayl noto\'g\'ri'); }
+    const restore = async text => {
+      let data;
+      try { data = JSON.parse(text); if (!Array.isArray(data.orders)) throw 0; }
+      catch { return toast('Zaxira noto\'g\'ri: Toza Gilam zaxirasini joylang'); }
+      if (!await ask(`${data.orders.length} ta buyurtma tiklansinmi? Hozirgi ma'lumotlar almashtiriladi.`, 'Tiklash', true)) return;
+      orders = data.orders; if (data.settings) settings = { ...DEFAULT_SETTINGS, ...data.settings };
+      persistOrders(); persistSettings(); toast('Tiklandi'); renderSettings();
     };
-    $('#demo', view).onclick = () => {
-      if (orders.length && !confirm('Namuna buyurtmalar qo\'shilsinmi?')) return;
+    $('#imp', view).onchange = async e => { const f = e.target.files[0]; if (f) restore(await f.text()); e.target.value = ''; };
+    $('#pasteGo', view).onclick = () => restore($('#paste', view).value);
+    $('#demoDel', view)?.addEventListener('click', async () => {
+      if (!await ask('Namuna buyurtmalar o\'chirilsinmi? Sizning buyurtmalaringiz qoladi.', 'O\'chirish', true)) return;
+      orders = orders.filter(o => !o.demo); persistOrders(); toast('Namunalar o\'chirildi'); renderSettings();
+    });
+    $('#demo', view).onclick = () => addDemo();
+  }
+
+  function addDemo() {
+    {
       const names = [['Dilnoza Karimova', '+998 90 123 45 67', 'Chilonzor 9-kvartal, 12-uy'], ['Sardor Aliyev', '+998 93 555 11 22', 'Yunusobod 4-mavze'],
         ['Malika Rahimova', '+998 97 700 80 90', 'Sergeli, Yangi hayot'], ['Jasur Toshmatov', '+998 99 321 65 43', ''], ['Nodira Usmonova', '+998 91 444 22 33', 'Mirzo Ulug\'bek, 7-uy']];
       const st = ['new', 'wash', 'dry', 'ready', 'done'];
       names.forEach(([name, phone, address], i) => {
         const s1 = settings.services[i % settings.services.length], s2 = settings.services[(i + 1) % settings.services.length];
         orders.push({
-          id: uid(), num: nextNum(), createdAt: Date.now() - i * 86400000 * 1.3, status: st[i], paid: i === 4 || i === 2,
+          id: uid(), demo: true, num: nextNum(), createdAt: Date.now() - i * 86400000 * 1.3, status: st[i], paid: i === 4 || i === 2,
           paidAt: Date.now(), customer: { name, phone, address },
           items: [{ service: s1.id, price: s1.price, w: 2 + i % 2, l: 3 }, ...(i % 2 ? [] : [{ service: s2.id, price: s2.price, w: 1.5, l: 2.5 }])],
           delivery: i % 2 === 0, deliveryFee: settings.deliveryFee, discount: 0, note: '', history: [],
         });
       });
-      persistOrders(); toast('Namuna ma\'lumot qo\'shildi'); location.hash = 'home';
+      persistOrders(); toast('Namuna ma\'lumot qo\'shildi'); if (location.hash === '#bosh') route(); else location.hash = 'bosh';
     };
   }
 
