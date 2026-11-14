@@ -12,19 +12,20 @@
 <body>
   <header class="topbar">
     <div class="brand"><img src="icon.svg" alt="" width="32" height="32"><span>Toza Gilam</span></div>
-    <button class="btn btn-primary btn-sm" data-go="new">+ Buyurtma</button>
+    <button class="btn btn-primary btn-sm" data-go="yangi">+ Buyurtma</button>
   </header>
 
   <main id="view" class="container"></main>
 
   <nav class="bottomnav" aria-label="Asosiy menyu">
-    <a href="#home" data-tab="home"><span class="ico">🏠</span>Bosh sahifa</a>
-    <a href="#orders" data-tab="orders"><span class="ico">📋</span>Buyurtmalar</a>
-    <a href="#new" data-tab="new"><span class="ico">➕</span>Yangi</a>
-    <a href="#settings" data-tab="settings"><span class="ico">⚙️</span>Sozlamalar</a>
+    <a href="#bosh" data-tab="bosh"><span class="ico">🏠</span>Bosh sahifa</a>
+    <a href="#buyurtmalar" data-tab="buyurtmalar"><span class="ico">📋</span>Buyurtmalar</a>
+    <a href="#yangi" data-tab="yangi"><span class="ico">➕</span>Yangi</a>
+    <a href="#sozlamalar" data-tab="sozlamalar"><span class="ico">⚙️</span>Sozlamalar</a>
   </nav>
 
   <dialog id="modal"><div id="modalBody"></div></dialog>
+  <dialog id="ask" class="ask"><p id="askText"></p><div class="actions"><button class="btn" id="askNo" type="button">Bekor qilish</button><button class="btn btn-primary" id="askOk" type="button">Ha</button></div></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
