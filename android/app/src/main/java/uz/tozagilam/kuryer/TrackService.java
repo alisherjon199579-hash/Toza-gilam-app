@@ -254,6 +254,7 @@ public class TrackService extends Service {
                 .setContentTitle("Toza Gilam")
                 .setContentText(text)
                 .setContentIntent(open)
+                .setColor(getColor(R.color.brand))
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .addAction(new Notification.Action.Builder(null, "To'xtatish", stop).build());

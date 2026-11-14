@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ilova ochilayotganda ko'rinadigan ekran -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/brand" />
+    <item android:drawable="@drawable/ic_carpet" android:gravity="center" android:width="168dp" android:height="168dp" />
+</layer-list>
