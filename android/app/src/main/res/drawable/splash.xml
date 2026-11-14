@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ilova ochilayotganda ko'rinadigan ekran: butun rasm, kesilmagan -->
+<!-- Ilova ochilayotganda ko'rinadigan ekran: belgi va nom -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_bg" />
-    <item android:drawable="@drawable/splash_logo" android:gravity="center" android:width="360dp" android:height="203dp" />
+    <item android:drawable="@drawable/splash_logo" android:gravity="center" android:width="300dp" android:height="250dp" />
 </layer-list>
