@@ -210,6 +210,10 @@ public class MainActivity extends Activity {
 
         askPermissions();
         handleIntent(getIntent());
+    }
+
+    /** Ilova har safar ekranga chiqqanda yangi versiya bor-yo'qligini tekshiradi. */
+    private void checkUpdate() {
         Updater.check(this, true, new Runnable() {
             @Override
             public void run() {
@@ -423,6 +427,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        checkUpdate();
         ui.removeCallbacks(syncBar);
         ui.postDelayed(syncBar, 800);
     }

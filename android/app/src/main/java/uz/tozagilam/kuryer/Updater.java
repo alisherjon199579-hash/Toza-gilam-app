@@ -25,7 +25,8 @@ final class Updater {
     static final String APK_URL = "https://github.com/alisherjon199579-hash/Toza-gilam-app/releases/download/apk/toza-gilam.apk";
     private static final String API_URL = "https://api.github.com/repos/alisherjon199579-hash/Toza-gilam-app/releases/tags/apk";
     private static final Pattern VER = Pattern.compile("\"name\"\\s*:\\s*\"[^\"]*\\(1\\.0\\.(\\d+)\\)");
-    private static final long EVERY_MS = 2 * 3600_000L;
+    private static final long EVERY_MS = 30 * 60_000L;   // fonda: har 30 daqiqada
+    private static final long OPEN_MS = 3 * 60_000L;     // ilova ochilganda: 3 daqiqada bir martadan ko'p emas
 
     /** Oxirgi tekshiruvda topilgan versiya raqami (0 - hali noma'lum). */
     static volatile int latest;
@@ -34,12 +35,15 @@ final class Updater {
         return latest > BuildConfig.VERSION_CODE;
     }
 
-    /** Fon oqimida tekshiradi. force=false bo'lsa, 2 soatda bir martadan ko'p emas. */
+    /** Fon oqimida tekshiradi. force=true - ilova ochilganda, force=false - fondagi xizmatdan. */
     static void check(final Context ctx, boolean force, final Runnable onNewVersion) {
         final Context app = ctx.getApplicationContext();
         final SharedPreferences p = app.getSharedPreferences("app", Context.MODE_PRIVATE);
         long now = System.currentTimeMillis();
-        if (!force && now - p.getLong("upd_checked", 0) < EVERY_MS) {
+        if (now - p.getLong("upd_checked", 0) < (force ? OPEN_MS : EVERY_MS)) {
+            if (available() && onNewVersion != null) {
+                onNewVersion.run(); // avval topilgan, lekin hali o'rnatilmagan
+            }
             return;
         }
         p.edit().putLong("upd_checked", now).apply();
