@@ -21,17 +21,17 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.webkit.CookieManager;
 
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * Fonda ishlaydi: dostavchik joylashuvini CRM serveriga yuborib turadi.
- * CRM'ga kirilgan hisob (cookie) bilan POST /api/app/loc ga {lat,lng,acc} yuboradi.
+ * CRM'ga kirilgan hisob (cookie) bilan POST /api/app/loc?lat=..&lng=..&acc=.. yuboradi.
+ * So'rov tanasi (body) ataylab bo'sh: server noma'lum manzilga kelgan tanani o'qimaydi va
+ * u keyingi so'rovga qo'shilib, CRM sahifasini buzadi.
  * Javoblar: 200 - qabul qilindi, 401 - tizimga kirilmagan, 403 - bu hisob dostavchik emas.
  */
 public class TrackService extends Service {
@@ -161,12 +161,12 @@ public class TrackService extends Service {
         }
         lastSent = System.currentTimeMillis();
         final String cookie = CookieManager.getInstance().getCookie(BuildConfig.BASE_URL);
-        final String body = String.format(Locale.US, "{\"lat\":%.6f,\"lng\":%.6f,\"acc\":%.0f}",
+        final String query = String.format(Locale.US, "lat=%.6f&lng=%.6f&acc=%.0f",
                 loc.getLatitude(), loc.getLongitude(), loc.getAccuracy());
         net.execute(new Runnable() {
             @Override
             public void run() {
-                final int code = post(cookie, body);
+                final int code = post(cookie, query);
                 main.post(new Runnable() {
                     @Override
                     public void run() {
@@ -177,23 +177,19 @@ public class TrackService extends Service {
         });
     }
 
-    private int post(String cookie, String body) {
+    private int post(String cookie, String query) {
         HttpURLConnection c = null;
         try {
-            c = (HttpURLConnection) new URL(BuildConfig.BASE_URL + "/api/app/loc").openConnection();
+            c = (HttpURLConnection) new URL(BuildConfig.BASE_URL + "/api/app/loc?" + query).openConnection();
             c.setConnectTimeout(15_000);
             c.setReadTimeout(15_000);
             c.setRequestMethod("POST");
             c.setDoOutput(true);
-            c.setRequestProperty("Content-Type", "application/json");
             if (cookie != null) {
                 c.setRequestProperty("Cookie", cookie);
             }
-            byte[] data = body.getBytes(StandardCharsets.UTF_8);
-            c.setFixedLengthStreamingMode(data.length);
-            try (OutputStream os = c.getOutputStream()) {
-                os.write(data);
-            }
+            c.setFixedLengthStreamingMode(0);
+            c.getOutputStream().close();
             return c.getResponseCode();
         } catch (Exception e) {
             return -1;
