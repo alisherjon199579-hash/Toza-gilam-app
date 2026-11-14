@@ -2,5 +2,5 @@
 <resources>
     <color name="brand">#0B3FA8</color>
     <color name="brand_dark">#082F80</color>
-    <color name="splash_bg">#EEF6FF</color>
+    <color name="splash_bg">#FFFFFF</color>
 </resources>
