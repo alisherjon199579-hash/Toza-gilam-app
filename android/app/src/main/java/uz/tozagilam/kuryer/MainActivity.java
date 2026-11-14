@@ -23,6 +23,7 @@ import android.provider.Settings;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -42,6 +43,9 @@ import java.util.regex.Pattern;
 public class MainActivity extends Activity {
     private static final int REQ_PERMS = 1;
     private static final int REQ_FILE = 2;
+    private static final int REQ_MIC = 3;
+
+    private PermissionRequest micRequest; // chatda ovozli xabar yozish uchun
 
     /** Ilova oynasi tirikmi: tirik bo'lsa xabarlarni shu oyna kuzatadi, bo'lmasa xizmat. */
     static volatile boolean alive;
@@ -157,6 +161,29 @@ public class MainActivity extends Activity {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                 callback.invoke(origin, hasLocation(), false);
+            }
+
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean wantsMic = false;
+                        for (String r : request.getResources()) {
+                            if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) {
+                                wantsMic = true;
+                            }
+                        }
+                        if (!wantsMic) {
+                            request.deny();
+                        } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                        } else {
+                            micRequest = request;
+                            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC);
+                        }
+                    }
+                });
             }
 
             @Override
@@ -332,6 +359,16 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQ_MIC && micRequest != null) {
+            PermissionRequest r = micRequest;
+            micRequest = null;
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                r.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+            } else {
+                r.deny();
+            }
+            return;
+        }
         if (requestCode == REQ_PERMS && hasLocation()) {
             startTracking();
         }
