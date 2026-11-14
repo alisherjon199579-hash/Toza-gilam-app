@@ -3,10 +3,6 @@ package uz.tozagilam.kuryer;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -22,7 +18,6 @@ import android.provider.Settings;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
-import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -41,6 +36,9 @@ public class MainActivity extends Activity {
     private static final int REQ_PERMS = 1;
     private static final int REQ_FILE = 2;
 
+    /** Ilova oynasi tirikmi: tirik bo'lsa xabarlarni shu oyna kuzatadi, bo'lmasa xizmat. */
+    static volatile boolean alive;
+
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -50,50 +48,6 @@ public class MainActivity extends Activity {
             + "while(e){var c=getComputedStyle(e).backgroundColor;"
             + "if(c&&c!=='transparent'&&!/,\\s*0\\)$/.test(c))return c;e=e.parentElement}}catch(x){}return ''})()";
     private static final Pattern RGB = Pattern.compile("(\\d+)\\D+(\\d+)\\D+(\\d+)");
-
-    /**
-     * WebView'da brauzer bildirishnomalari (Notification) yo'q. CRM sahifasi ularni chaqirganda
-     * telefonning o'z bildirishnomasi chiqishi uchun shu ko'prik qo'yiladi.
-     */
-    private static final String NOTIF_JS = "(function(){if(window.__tgNotif)return;window.__tgNotif=1;"
-            + "function N(t,o){try{TozaGilamApp.notify(String(t||''),String((o&&o.body)||''),String((o&&o.tag)||''))}catch(e){}}"
-            + "N.permission='granted';"
-            + "N.requestPermission=function(cb){if(typeof cb==='function')cb('granted');return Promise.resolve('granted')};"
-            + "try{window.Notification=N}catch(e){}})()";
-
-    private class Bridge {
-        @JavascriptInterface
-        public void notify(String title, String body, String tag) {
-            showNews(title, body, tag);
-        }
-    }
-
-    private void showNews(String title, String body, String tag) {
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm == null) {
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(new NotificationChannel("news", "CRM xabarlari", NotificationManager.IMPORTANCE_HIGH));
-        }
-        PendingIntent open = PendingIntent.getActivity(this, 2, new Intent(this, MainActivity.class),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Notification.Builder b = Build.VERSION.SDK_INT >= 26
-                ? new Notification.Builder(this, "news")
-                : new Notification.Builder(this).setPriority(Notification.PRIORITY_HIGH).setDefaults(Notification.DEFAULT_ALL);
-        b.setSmallIcon(R.drawable.ic_stat)
-                .setColor(getColor(R.color.brand))
-                .setContentTitle(title == null || title.isEmpty() ? "Toza Gilam" : title)
-                .setContentText(body)
-                .setStyle(new Notification.BigTextStyle().bigText(body))
-                .setContentIntent(open)
-                .setAutoCancel(true);
-        int id = 100 + (tag == null || tag.isEmpty() ? (int) (System.currentTimeMillis() % 100000) : (tag.hashCode() & 0xffff));
-        try {
-            nm.notify(id, b.build());
-        } catch (Exception ignored) {
-        }
-    }
 
     private final Runnable syncBar = new Runnable() {
         @Override
@@ -131,6 +85,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        alive = true;
         web = new WebView(this);
         web.setVisibility(View.INVISIBLE); // sahifa yuklanguncha gilamli ekran ko'rinib turadi
         setContentView(web);
@@ -141,7 +96,7 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setGeolocationEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
-        web.addJavascriptInterface(new Bridge(), "TozaGilamApp");
+        web.addJavascriptInterface(new Notifier.Bridge(this), "TozaGilamApp");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
@@ -180,7 +135,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 CookieManager.getInstance().flush();
                 view.setVisibility(View.VISIBLE);
-                view.evaluateJavascript(NOTIF_JS, null);
+                view.evaluateJavascript(Notifier.JS, null);
             }
         });
 
@@ -301,6 +256,13 @@ public class MainActivity extends Activity {
         super.onPause();
         ui.removeCallbacks(syncBar);
         CookieManager.getInstance().flush();
+    }
+
+    @Override
+    protected void onDestroy() {
+        alive = false;
+        ui.removeCallbacks(syncBar);
+        super.onDestroy();
     }
 
     @Override

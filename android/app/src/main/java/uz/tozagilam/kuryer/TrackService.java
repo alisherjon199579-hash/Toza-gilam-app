@@ -20,6 +20,10 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.webkit.CookieManager;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -34,6 +38,8 @@ import java.util.concurrent.Executors;
  * u keyingi so'rovga qo'shilib, CRM sahifasini buzadi.
  * Dostavchik bo'lmagan hisobda (403) GPS o'chiriladi, xizmat esa ilovani tirik saqlab turadi:
  * shunda ilova yig'ilgan holatda ham CRM bildirishnomalari keladi.
+ * Ilova oynasi yopilgan bo'lsa, xizmat CRM sahifasini ko'rinmas oynada ochib turadi:
+ * sahifa yangi xabarlarni o'zi kuzatadi va bildirishnoma chiqaradi.
  * Javoblar: 200 - qabul qilindi, 401 - tizimga kirilmagan, 403 - bu hisob dostavchik emas.
  */
 public class TrackService extends Service {
@@ -50,6 +56,9 @@ public class TrackService extends Service {
     private long lastSent;
     private String status = "";
     private boolean running;
+    private WebView bg;          // ko'rinmas CRM sahifasi (ilova yopiq paytda xabarlar uchun)
+    private boolean bgFailed;
+    private long bgLoadedAt;
     private boolean idle; // hisob dostavchik emas: joylashuv yuborilmaydi
 
     private final LocationListener listener = new LocationListener() {
@@ -89,6 +98,7 @@ public class TrackService extends Service {
             if (System.currentTimeMillis() - lastSent >= BEAT_EVERY_MS - 1000) {
                 send();
             }
+            watchNews();
             main.postDelayed(this, BEAT_EVERY_MS);
         }
     };
@@ -125,6 +135,57 @@ public class TrackService extends Service {
             main.postDelayed(beat, 5_000);
         }
         return START_STICKY;
+    }
+
+    /** Ilova oynasi yopiq bo'lsa, CRM sahifasini ko'rinmas holda ochib turadi. */
+    @SuppressLint("SetJavaScriptEnabled")
+    private void watchNews() {
+        try {
+            if (MainActivity.alive) {
+                closeBg();
+                return;
+            }
+            long now = System.currentTimeMillis();
+            if (bg == null) {
+                bg = new WebView(getApplicationContext());
+                bg.getSettings().setJavaScriptEnabled(true);
+                bg.getSettings().setDomStorageEnabled(true);
+                bg.getSettings().setDatabaseEnabled(true);
+                bg.addJavascriptInterface(new Notifier.Bridge(this), "TozaGilamApp");
+                bg.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        view.evaluateJavascript(Notifier.JS, null);
+                    }
+
+                    @Override
+                    public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                        if (request.isForMainFrame()) {
+                            bgFailed = true;
+                        }
+                    }
+                });
+                bgFailed = false;
+                bgLoadedAt = now;
+                bg.loadUrl(BuildConfig.BASE_URL);
+            } else if (bgFailed || now - bgLoadedAt > 6 * 3600_000L) {
+                // internet bo'lmagan yoki sahifa uzoq turib qolgan: qayta yuklash
+                bgFailed = false;
+                bgLoadedAt = now;
+                bg.loadUrl(BuildConfig.BASE_URL);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void closeBg() {
+        if (bg != null) {
+            try {
+                bg.destroy();
+            } catch (Exception ignored) {
+            }
+            bg = null;
+        }
     }
 
     private boolean hasLocation() {
@@ -284,6 +345,7 @@ public class TrackService extends Service {
     private void shutdown() {
         running = false;
         main.removeCallbacks(beat);
+        closeBg();
         if (lm != null) {
             try {
                 lm.removeUpdates(listener);
@@ -302,6 +364,7 @@ public class TrackService extends Service {
     public void onDestroy() {
         running = false;
         main.removeCallbacks(beat);
+        closeBg();
         if (lm != null) {
             try {
                 lm.removeUpdates(listener);
