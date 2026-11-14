@@ -15,12 +15,13 @@ PORT = os.environ.get('GILAM_PORT', '8087')
 TEST = bool(os.environ.get('GILAM_TEST'))
 
 FUNC = r'''
-# ---- ilova: jamoa chati (app-chat) ----
+# ---- ilova: jamoa chati (app-chat) v2 ----
 def _chat_db():
     import os, sqlite3
     c = sqlite3.connect(os.path.join(os.environ.get('CRM_DATA', '/var/lib/gilam-crm'), 'crm.db'), timeout=10)
     c.execute('CREATE TABLE IF NOT EXISTS app_chat(id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT, name TEXT, role TEXT,'
               ' t INTEGER, text TEXT, voice INTEGER DEFAULT 0, dur INTEGER DEFAULT 0, mime TEXT, data BLOB)')
+    c.execute('CREATE TABLE IF NOT EXISTS app_chat_read(uid TEXT PRIMARY KEY, name TEXT, last INTEGER)')
     return c
 
 
@@ -38,12 +39,25 @@ def _chat_list(h, u):
     who = _chat_who(h)
     if not who:
         return
+    q = urllib.parse.parse_qs(u.query)
     try:
-        after = int(urllib.parse.parse_qs(u.query).get('after', ['0'])[0])
+        after = int(q.get('after', ['0'])[0])
     except Exception:
         after = 0
+    try:
+        seen = int(q.get('seen', ['0'])[0])
+    except Exception:
+        seen = 0
     c = _chat_db()
     try:
+        if seen > 0:
+            # chat oynasi ochiq: shu xodim 'seen' gacha bo'lgan xabarlarni o'qidi
+            top = c.execute('SELECT MAX(id) FROM app_chat').fetchone()[0] or 0
+            c.execute('INSERT INTO app_chat_read(uid,name,last) VALUES(?,?,?) ON CONFLICT(uid) DO UPDATE SET'
+                      ' name=excluded.name, last=MAX(last, excluded.last)', (who[0], who[1], min(seen, top)))
+            c.commit()
+        readers = [{'name': r[0], 'last': r[1]} for r in
+                   c.execute('SELECT name,last FROM app_chat_read WHERE uid<>? ORDER BY name', (who[0],))]
         cols = 'id,uid,name,role,t,text,voice,dur'
         if after > 0:
             rows = c.execute('SELECT %s FROM app_chat WHERE id>? ORDER BY id LIMIT 300' % cols, (after,)).fetchall()
@@ -53,7 +67,7 @@ def _chat_list(h, u):
         c.close()
     out = [{'id': r[0], 'uid': r[1], 'name': r[2], 'role': r[3], 't': r[4], 'text': r[5] or '', 'voice': bool(r[6]), 'dur': r[7] or 0}
            for r in rows]
-    return h.send(200, {'me': who[0], 'list': out})
+    return h.send(200, {'me': who[0], 'list': out, 'readers': readers})
 
 
 def _chat_voice(h, u):
@@ -137,7 +151,7 @@ HTML = r'''<style id="appchat-css">
 #appchat-btn svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 #appchat-badge{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;border-radius:11px;background:#d92d20;color:#fff;font:700 12px/22px system-ui,sans-serif;text-align:center;padding:0 6px;font-style:normal}
 #appchat-panel{position:fixed;inset:0;z-index:40;background:var(--bg,#f1f5f6);color:var(--ink,#10252b);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
-#appchat-panel[hidden],#appchat-btn[hidden],#appchat-badge[hidden]{display:none!important}
+#appchat-panel[hidden],#appchat-btn[hidden],#appchat-badge[hidden],#appchat-tip[hidden]{display:none!important}
 #appchat-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface,#fff);border-bottom:1px solid var(--line,#d5dfe2)}
 #appchat-head b{flex:1;font-size:18px}
 #appchat-head button{border:0;background:var(--sunk,#e6edef);color:inherit;border-radius:999px;width:38px;height:38px;font-size:18px;line-height:1}
@@ -147,6 +161,9 @@ HTML = r'''<style id="appchat-css">
 #appchat-list .acm.me{align-self:flex-end;background:var(--accent-soft,#d9eef0);border-color:transparent;border-radius:16px 16px 4px 16px}
 #appchat-list .acm small{display:block;font-size:12px;font-weight:700;color:var(--accent,#0a6f79);margin-bottom:2px;white-space:normal}
 #appchat-list .acm time{display:block;font-size:11px;color:var(--muted,#587078);text-align:right;margin-top:3px}
+#appchat-list .acm time b{font-weight:700;font-size:15px;margin-left:5px;letter-spacing:-2px;padding-right:2px}
+#appchat-list .acm time b.read{color:#1a8fe3}
+#appchat-tip{position:absolute;left:50%;transform:translateX(-50%);bottom:86px;z-index:2;max-width:86%;background:var(--ink,#10252b);color:var(--bg,#fff);border-radius:12px;padding:9px 14px;font-weight:600;font-size:14px;text-align:center}
 #appchat-list .acm .voice{display:flex;align-items:center;gap:10px;border:0;background:none;color:inherit;font:inherit;font-weight:600;padding:4px 0;min-width:150px}
 #appchat-list .acm .voice i{width:38px;height:38px;border-radius:50%;background:var(--accent,#0a6f79);color:var(--accent-ink,#fff);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:15px;flex:none}
 #appchat-empty{margin:auto;color:var(--muted,#587078);text-align:center;padding:0 24px}
@@ -160,10 +177,11 @@ HTML = r'''<style id="appchat-css">
 #appchat-foot:not(.rec) #appchat-rec,#appchat-foot:not(.rec) #appchat-cancel,#appchat-foot.rec textarea,#appchat-foot.rec #appchat-send{display:none}
 @media(min-width:900px){#appchat-panel>*{width:100%;max-width:760px;margin-left:auto;margin-right:auto}#appchat-btn{bottom:96px;right:28px}}
 </style>
-<script id="appchat-js">
+<script id="appchat-js" data-v="2">
 /* Jamoa chati: rahbar va xodimlar o'rtasida matn va ovozli xabarlar */
 (function(){
   var open=false,lastId=0,meId=null,busy=false,lastPoll=0,first=true,lastDay='';
+  var readers=[],mineEls=[],tipEl=null,tipTimer=null;
   var btn,badge,panel,list,foot,input,recLabel,rec=null,chunks=[],recStart=0,recTimer=null,recCancel=false,playing=null;
   function ls(k,v){try{if(v===undefined)return +localStorage.getItem(k)||0;localStorage.setItem(k,String(v))}catch(e){return 0}}
   function logged(){try{return typeof S!=='undefined'&&S&&!!S.me}catch(e){return false}}
@@ -205,7 +223,14 @@ HTML = r'''<style id="appchat-css">
       v.appendChild(el('span','','Ovozli xabar'+(m.dur?' · '+mmss(m.dur):'')));
       v.onclick=function(){play(m.id,ic)};b.appendChild(v)}
     else b.appendChild(document.createTextNode(m.text));
-    var tm=el('time','',clock(m.t));b.appendChild(tm);list.appendChild(b)}
+    var tm=el('time','',clock(m.t));b.appendChild(tm);
+    if(mine){var tk=el('b','','\u2713');tm.appendChild(tk);mineEls.push({id:m.id,tk:tk});
+      b.onclick=function(ev){if(ev.target.closest&&ev.target.closest('.voice'))return;
+        var who=readers.filter(function(r){return r.last>=m.id}).map(function(r){return r.name});
+        tip(who.length?"O'qidi: "+who.join(', '):'Yuborildi. Hali hech kim o\'qimagan')}}
+    list.appendChild(b)}
+  function ticks(){mineEls.forEach(function(x){var rd=readers.some(function(r){return r.last>=x.id});
+    x.tk.textContent=rd?'\u2713\u2713':'\u2713';x.tk.className=rd?'read':''})}
   function play(id,ic){
     if(playing){try{playing.a.pause()}catch(e){}playing.ic.textContent='▶';var same=playing.id===id;playing=null;if(same)return}
     ic.textContent='…';
@@ -213,17 +238,19 @@ HTML = r'''<style id="appchat-css">
       var a=new Audio(URL.createObjectURL(bl));playing={a:a,ic:ic,id:id};ic.textContent='⏸';
       a.onended=a.onerror=function(){ic.textContent='▶';if(playing&&playing.id===id)playing=null};
       return a.play()}).catch(function(){ic.textContent='▶';playing=null;tip("Ovozli xabarni ochib bo'lmadi")})}
-  function tip(t){try{if(typeof toast==='function')return toast(t)}catch(e){}recLabel.textContent=t}
+  function tip(t){if(!tipEl){tipEl=el('div');tipEl.id='appchat-tip';panel.appendChild(tipEl)}
+    tipEl.textContent=t;tipEl.hidden=false;clearTimeout(tipTimer);tipTimer=setTimeout(function(){tipEl.hidden=true},2600)}
   function note(fresh){try{
     if(!('Notification' in window)||Notification.permission!=='granted')return;
     var m=fresh[fresh.length-1],body=m.voice?'🎤 Ovozli xabar':m.text;
     new Notification(fresh.length>1?'Chat: '+fresh.length+' ta yangi xabar':'Chat: '+m.name,{body:fresh.length>1?m.name+': '+body:body,tag:'chat'})}catch(e){}}
   function poll(){
     if(busy||!logged())return;busy=true;lastPoll=Date.now();
-    fetch('/api/app/chat?after='+lastId,{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(d){
+    fetch('/api/app/chat?after='+lastId+(open&&lastId?'&seen='+lastId:''),{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(d){
       busy=false;if(!d)return;meId=d.me;
       var atEnd=list.scrollHeight-list.scrollTop-list.clientHeight<80;
       d.list.forEach(function(m){if(m.id>lastId){add(m);lastId=m.id}});
+      readers=d.readers||[];ticks();
       if(first){first=false;if(!list.children.length){var e=el('div','',"Hali xabar yo'q. Birinchi bo'lib yozing.");e.id='appchat-empty';list.appendChild(e)}
         if(!ls('appchat_seen')&&!ls('appchat_told')){ls('appchat_seen',lastId);ls('appchat_told',lastId)}}
       var others=d.list.filter(function(m){return String(m.uid)!==String(meId)});
@@ -269,8 +296,10 @@ def main():
     sp, hp = os.path.join(D, 'server.py'), os.path.join(D, 'index.html')
     t = open(sp, encoding='utf-8').read()
     h = open(hp, encoding='utf-8').read()
-    if '/api/app/chat' in t or 'appchat-js' in h:
-        sys.exit("Allaqachon o'rnatilgan - hech narsa o'zgarmadi.")
+    upgrade = '/api/app/chat' in t or 'appchat-js' in h
+    if upgrade:
+        if '(app-chat) v2 ----' in t and 'id="appchat-js" data-v="2"' in h:
+            sys.exit("Allaqachon oxirgi versiya o'rnatilgan - hech narsa o'zgarmadi.")
     anchors = list(re.finditer(r"^([ \t]*)if u\.path == '/api/me':[ \t]*$", t, re.M))
     if len(anchors) != 1:
         sys.exit("Mos kelmadi (server.py, /api/me: %d ta) - hech narsa o'zgarmadi." % len(anchors))
@@ -280,6 +309,16 @@ def main():
     if not classes or i < 0:
         sys.exit("Mos kelmadi (class yoki </body> topilmadi) - hech narsa o'zgarmadi.")
     cls = classes[-1]
+    if upgrade:
+        # avval o'rnatilgan chat: funksiyalar va sahifadagi qism yangisiga almashtiriladi
+        m0 = re.search(r'^# ---- ilova: jamoa chati \(app-chat\).*\n', t, re.M)
+        old = re.search(r'<style id="appchat-css">.*?</style>\s*<script id="appchat-js"[^>]*>.*?</script>\n?', h, re.S)
+        if not m0 or m0.start() > cls.start() or not old or 'def _app_put' not in t[m0.start():cls.start()] \
+                or re.search(r'^class ', t[m0.start():cls.start()], re.M):
+            sys.exit("Mos kelmadi (eski chat qismi topilmadi) - hech narsa o'zgarmadi.")
+        new_t = t[:m0.start()] + FUNC.lstrip('\n') + t[cls.start():]
+        new_h = h[:old.start()] + HTML + h[old.end():]
+        return apply(sp, hp, new_t, new_h, "Tayyor: jamoa chati yangilandi. CRM sahifasini yangilang.")
     if re.search(r'^\s*def do_PUT\(', t, re.M):
         sys.exit("Mos kelmadi (do_PUT allaqachon bor) - hech narsa o'zgarmadi.")
     body = re.match(r'(?:[ \t]*\n)*([ \t]+)\S', t[cls.end():])
@@ -293,7 +332,10 @@ def main():
     new_t = (t[:cls.start()] + FUNC.lstrip('\n') + t[cls.start():cls.end()] + method
              + t[cls.end():a.start()] + route + t[a.start():])
     new_h = h[:i] + HTML + h[i:]
+    return apply(sp, hp, new_t, new_h, "Tayyor: jamoa chati o'rnatildi. CRM sahifasini yangilang.")
 
+
+def apply(sp, hp, new_t, new_h, done):
     chk = '/tmp/chk_server.py'
     open(chk, 'w', encoding='utf-8').write(new_t)
     try:
@@ -321,7 +363,7 @@ def main():
         return False
 
     if healthy():
-        print("Tayyor: jamoa chati o'rnatildi. CRM sahifasini yangilang.")
+        print(done)
     else:
         for p in (sp, hp):
             shutil.copy2(p + '.bak-' + stamp, p)
