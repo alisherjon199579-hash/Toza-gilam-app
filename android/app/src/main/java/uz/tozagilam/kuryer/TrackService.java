@@ -29,9 +29,11 @@ import java.util.concurrent.Executors;
 
 /**
  * Fonda ishlaydi: dostavchik joylashuvini CRM serveriga yuborib turadi.
- * CRM'ga kirilgan hisob (cookie) bilan POST /api/app/loc?lat=..&lng=..&acc=.. yuboradi.
- * So'rov tanasi (body) ataylab bo'sh: server noma'lum manzilga kelgan tanani o'qimaydi va
+ * CRM'ga kirilgan hisob (cookie) bilan GET /api/app/loc?lat=..&lng=..&acc=.. yuboradi.
+ * Ataylab GET va tanasiz: server noma'lum manzilga kelgan so'rov tanasini o'qimaydi va
  * u keyingi so'rovga qo'shilib, CRM sahifasini buzadi.
+ * Dostavchik bo'lmagan hisobda (403) GPS o'chiriladi, xizmat esa ilovani tirik saqlab turadi:
+ * shunda ilova yig'ilgan holatda ham CRM bildirishnomalari keladi.
  * Javoblar: 200 - qabul qilindi, 401 - tizimga kirilmagan, 403 - bu hisob dostavchik emas.
  */
 public class TrackService extends Service {
@@ -48,6 +50,7 @@ public class TrackService extends Service {
     private long lastSent;
     private String status = "";
     private boolean running;
+    private boolean idle; // hisob dostavchik emas: joylashuv yuborilmaydi
 
     private final LocationListener listener = new LocationListener() {
         @Override
@@ -150,19 +153,24 @@ public class TrackService extends Service {
     }
 
     private void send() {
-        final Location loc = last;
-        if (loc == null) {
-            setStatus("Joylashuv aniqlanmoqda… GPS yoqilganini tekshiring");
-            return;
-        }
-        if (System.currentTimeMillis() - loc.getTime() > 10 * 60_000) {
-            setStatus("Joylashuv eskirgan. GPS yoqilganini tekshiring");
-            return;
+        final String query;
+        if (idle) {
+            query = ""; // faqat tekshiruv: hisob dostavchikka almashganmi
+        } else {
+            final Location loc = last;
+            if (loc == null) {
+                setStatus("Joylashuv aniqlanmoqda… GPS yoqilganini tekshiring");
+                return;
+            }
+            if (System.currentTimeMillis() - loc.getTime() > 10 * 60_000) {
+                setStatus("Joylashuv eskirgan. GPS yoqilganini tekshiring");
+                return;
+            }
+            query = String.format(Locale.US, "lat=%.6f&lng=%.6f&acc=%.0f",
+                    loc.getLatitude(), loc.getLongitude(), loc.getAccuracy());
         }
         lastSent = System.currentTimeMillis();
         final String cookie = CookieManager.getInstance().getCookie(BuildConfig.BASE_URL);
-        final String query = String.format(Locale.US, "lat=%.6f&lng=%.6f&acc=%.0f",
-                loc.getLatitude(), loc.getLongitude(), loc.getAccuracy());
         net.execute(new Runnable() {
             @Override
             public void run() {
@@ -180,16 +188,13 @@ public class TrackService extends Service {
     private int post(String cookie, String query) {
         HttpURLConnection c = null;
         try {
-            c = (HttpURLConnection) new URL(BuildConfig.BASE_URL + "/api/app/loc?" + query).openConnection();
+            c = (HttpURLConnection) new URL(BuildConfig.BASE_URL + "/api/app/loc" + (query.isEmpty() ? "" : "?" + query)).openConnection();
             c.setConnectTimeout(15_000);
             c.setReadTimeout(15_000);
-            c.setRequestMethod("POST");
-            c.setDoOutput(true);
+            c.setRequestMethod("GET");
             if (cookie != null) {
                 c.setRequestProperty("Cookie", cookie);
             }
-            c.setFixedLengthStreamingMode(0);
-            c.getOutputStream().close();
             return c.getResponseCode();
         } catch (Exception e) {
             return -1;
@@ -204,13 +209,32 @@ public class TrackService extends Service {
         if (!running) {
             return;
         }
+        if (idle) {
+            if (code == 200 || code == 400) { // endi dostavchik hisobi
+                idle = false;
+                startUpdates();
+                setStatus("Joylashuv yuborilmoqda");
+            } else if (code == 401) {
+                setStatus("Ilovani ochib, CRM'ga kiring");
+            } else if (code == 403) {
+                setStatus("Bildirishnomalar yoqilgan");
+            }
+            return;
+        }
         if (code == 200) {
             setStatus("Joylashuv yuborilmoqda");
         } else if (code == 401) {
             setStatus("Ilovani ochib, CRM'ga kiring");
         } else if (code == 403) {
-            // Rahbar yoki boshqa xodim: joylashuv kerak emas
-            shutdown();
+            // Rahbar yoki boshqa xodim: joylashuv kerak emas, GPS o'chiriladi
+            idle = true;
+            if (lm != null) {
+                try {
+                    lm.removeUpdates(listener);
+                } catch (Exception ignored) {
+                }
+            }
+            setStatus("Bildirishnomalar yoqilgan");
         } else if (code == -1) {
             setStatus("Internet yo'q, qayta urinilmoqda");
         } else {
