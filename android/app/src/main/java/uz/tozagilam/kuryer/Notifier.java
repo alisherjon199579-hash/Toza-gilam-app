@@ -48,6 +48,12 @@ final class Notifier {
             this.headless = headless;
         }
 
+        /** Foydalanuvchi hozir ilovaga qarab turibdimi (chat "o'qildi" belgisi shunga qarab qo'yiladi). */
+        @JavascriptInterface
+        public boolean visible() {
+            return !headless && MainActivity.resumed;
+        }
+
         /** Sahifadagi xabar tasmasi: foydalanuvchi ilovaga qarab turgan bo'lsa, takrorlash shart emas. */
         @JavascriptInterface
         public void banner(String title, String body) {

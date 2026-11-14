@@ -15,7 +15,7 @@ PORT = os.environ.get('GILAM_PORT', '8087')
 TEST = bool(os.environ.get('GILAM_TEST'))
 
 FUNC = r'''
-# ---- ilova: jamoa chati (app-chat) v2 ----
+# ---- ilova: jamoa chati (app-chat) v3 ----
 def _chat_db():
     import os, sqlite3
     c = sqlite3.connect(os.path.join(os.environ.get('CRM_DATA', '/var/lib/gilam-crm'), 'crm.db'), timeout=10)
@@ -50,12 +50,19 @@ def _chat_list(h, u):
         seen = 0
     c = _chat_db()
     try:
-        if seen > 0:
-            # chat oynasi ochiq: shu xodim 'seen' gacha bo'lgan xabarlarni o'qidi
-            top = c.execute('SELECT MAX(id) FROM app_chat').fetchone()[0] or 0
-            c.execute('INSERT INTO app_chat_read(uid,name,last) VALUES(?,?,?) ON CONFLICT(uid) DO UPDATE SET'
-                      ' name=excluded.name, last=MAX(last, excluded.last)', (who[0], who[1], min(seen, top)))
+        top = c.execute('SELECT MAX(id) FROM app_chat').fetchone()[0] or 0
+        mine = c.execute('SELECT last FROM app_chat_read WHERE uid=?', (who[0],)).fetchone()
+        if mine is None:
+            # chatga birinchi marta kirgan xodim: eski xabarlar o'qilmagan deb sanalmaydi
+            c.execute('INSERT OR IGNORE INTO app_chat_read(uid,name,last) VALUES(?,?,?)', (who[0], who[1], top))
             c.commit()
+            mine = (top,)
+        if seen > mine[0]:
+            # chat oynasi ochiq va xodim qarab turibdi: 'seen' gacha bo'lgan xabarlar o'qildi
+            c.execute('UPDATE app_chat_read SET name=?, last=? WHERE uid=?', (who[1], min(seen, top), who[0]))
+            c.commit()
+            mine = (min(seen, top),)
+        unread = c.execute('SELECT COUNT(*) FROM app_chat WHERE id>? AND uid<>?', (mine[0], who[0])).fetchone()[0]
         readers = [{'name': r[0], 'last': r[1]} for r in
                    c.execute('SELECT name,last FROM app_chat_read WHERE uid<>? ORDER BY name', (who[0],))]
         cols = 'id,uid,name,role,t,text,voice,dur'
@@ -67,7 +74,7 @@ def _chat_list(h, u):
         c.close()
     out = [{'id': r[0], 'uid': r[1], 'name': r[2], 'role': r[3], 't': r[4], 'text': r[5] or '', 'voice': bool(r[6]), 'dur': r[7] or 0}
            for r in rows]
-    return h.send(200, {'me': who[0], 'list': out, 'readers': readers})
+    return h.send(200, {'me': who[0], 'list': out, 'readers': readers, 'unread': unread})
 
 
 def _chat_voice(h, u):
@@ -179,13 +186,16 @@ HTML = r'''<style id="appchat-css">
 #appchat-foot:not(.rec) #appchat-rec,#appchat-foot:not(.rec) #appchat-cancel,#appchat-foot.rec textarea,#appchat-foot.rec #appchat-send{display:none}
 @media(min-width:900px){#appchat-panel>*{width:100%;max-width:760px;margin-left:auto;margin-right:auto}#appchat-btn{bottom:96px;right:28px}}
 </style>
-<script id="appchat-js" data-v="3">
+<script id="appchat-js" data-v="4">
 /* Jamoa chati: rahbar va xodimlar o'rtasida matn va ovozli xabarlar */
 (function(){
   var open=false,lastId=0,meId=null,busy=false,lastPoll=0,first=true,lastDay='';
   var readers=[],mineEls=[],tipEl=null,tipTimer=null;
   var btn,badge,panel,list,foot,input,recLabel,rec=null,chunks=[],recStart=0,recTimer=null,recCancel=false,playing=null;
   function ls(k,v){try{if(v===undefined)return +localStorage.getItem(k)||0;localStorage.setItem(k,String(v))}catch(e){return 0}}
+  /* Xodim hozir chatga qarab turibdimi: oyna ochiq va ilova/sahifa ekranda */
+  function looking(){try{if(window.TozaGilamApp&&TozaGilamApp.visible)return !!TozaGilamApp.visible()}catch(e){}return !document.hidden}
+  function reading(){return open&&looking()}
   function logged(){try{return typeof S!=='undefined'&&S&&!!S.me}catch(e){return false}}
   function p2(n){return n<10?'0'+n:''+n}
   function clock(t){var d=new Date(t*1000);return p2(d.getHours())+':'+p2(d.getMinutes())}
@@ -213,7 +223,7 @@ HTML = r'''<style id="appchat-css">
     window.addEventListener('popstate',function(){if(open)hide()});
   }
   function show(){open=true;panel.hidden=false;try{history.pushState({appchat:1},'')}catch(e){}
-    ls('appchat_seen',lastId);setBadge(0);list.scrollTop=list.scrollHeight;poll()}
+    setBadge(0);list.scrollTop=list.scrollHeight;lastPoll=0;poll()}
   function hide(){open=false;panel.hidden=true;if(rec)stopRec(true)}
   function setBadge(n){badge.hidden=!n;badge.textContent=n>99?'99+':String(n);btn.classList.toggle('has',!!n)}
   function add(m){
@@ -248,20 +258,19 @@ HTML = r'''<style id="appchat-css">
     new Notification(fresh.length>1?'Chat: '+fresh.length+' ta yangi xabar':'Chat: '+m.name,{body:fresh.length>1?m.name+': '+body:body,tag:'chat'})}catch(e){}}
   function poll(){
     if(busy||!logged())return;busy=true;lastPoll=Date.now();
-    fetch('/api/app/chat?after='+lastId+(open&&lastId?'&seen='+lastId:''),{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(d){
+    fetch('/api/app/chat?after='+lastId+(reading()&&lastId?'&seen='+lastId:''),{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(d){
       busy=false;if(!d)return;meId=d.me;
       var atEnd=list.scrollHeight-list.scrollTop-list.clientHeight<80;
       d.list.forEach(function(m){if(m.id>lastId){add(m);lastId=m.id}});
       readers=d.readers||[];ticks();
       if(first){first=false;if(!list.children.length){var e=el('div','',"Hali xabar yo'q. Birinchi bo'lib yozing.");e.id='appchat-empty';list.appendChild(e)}
-        if(!ls('appchat_seen')&&!ls('appchat_told')){ls('appchat_seen',lastId);ls('appchat_told',lastId)}}
+        if(!ls('appchat_told'))ls('appchat_told',lastId)}
       var others=d.list.filter(function(m){return String(m.uid)!==String(meId)});
       var fresh=others.filter(function(m){return m.id>ls('appchat_told')});
       if(lastId>ls('appchat_told'))ls('appchat_told',lastId);
-      if(open){ls('appchat_seen',lastId);if(d.list.length&&atEnd)list.scrollTop=list.scrollHeight}
-      else{if(fresh.length)note(fresh);
-        if(d.list.length){var seen=ls('appchat_seen'),n=0,bs=list.querySelectorAll('.acm:not(.me)');
-          n=others.filter(function(m){return m.id>seen}).length+(+badge.textContent||0)*(badge.hidden?0:1);setBadge(n)}}
+      if(d.list.length&&open&&atEnd)list.scrollTop=list.scrollHeight;
+      if(reading()){setBadge(0);if(d.list.length)lastPoll=0} /* ko'rilgan xabarlar darhol o'qildi deb yuboriladi */
+      else{setBadge(d.unread||0);if(fresh.length)note(fresh)}
     }).catch(function(){busy=false})}
   function sendText(){
     var t=input.value.trim();if(!t)return;input.value='';input.style.height='auto';
@@ -300,7 +309,7 @@ def main():
     h = open(hp, encoding='utf-8').read()
     upgrade = '/api/app/chat' in t or 'appchat-js' in h
     if upgrade:
-        if '(app-chat) v2 ----' in t and 'id="appchat-js" data-v="3"' in h:
+        if '(app-chat) v3 ----' in t and 'id="appchat-js" data-v="4"' in h:
             sys.exit("Allaqachon oxirgi versiya o'rnatilgan - hech narsa o'zgarmadi.")
     anchors = list(re.finditer(r"^([ \t]*)if u\.path == '/api/me':[ \t]*$", t, re.M))
     if len(anchors) != 1:
