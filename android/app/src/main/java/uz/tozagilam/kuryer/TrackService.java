@@ -151,8 +151,13 @@ public class TrackService extends Service {
                 bg.getSettings().setJavaScriptEnabled(true);
                 bg.getSettings().setDomStorageEnabled(true);
                 bg.getSettings().setDatabaseEnabled(true);
-                bg.addJavascriptInterface(new Notifier.Bridge(this), "TozaGilamApp");
+                bg.addJavascriptInterface(new Notifier.Bridge(this, true), "TozaGilamApp");
                 bg.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                        view.evaluateJavascript(Notifier.JS, null);
+                    }
+
                     @Override
                     public void onPageFinished(WebView view, String url) {
                         view.evaluateJavascript(Notifier.JS, null);
@@ -167,6 +172,9 @@ public class TrackService extends Service {
                 });
                 bgFailed = false;
                 bgLoadedAt = now;
+                bg.layout(0, 0, 360, 640);
+                bg.onResume();
+                bg.resumeTimers();
                 bg.loadUrl(BuildConfig.BASE_URL);
             } else if (bgFailed || now - bgLoadedAt > 6 * 3600_000L) {
                 // internet bo'lmagan yoki sahifa uzoq turib qolgan: qayta yuklash

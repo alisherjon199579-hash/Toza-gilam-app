@@ -38,6 +38,8 @@ public class MainActivity extends Activity {
 
     /** Ilova oynasi tirikmi: tirik bo'lsa xabarlarni shu oyna kuzatadi, bo'lmasa xizmat. */
     static volatile boolean alive;
+    /** Foydalanuvchi hozir ilovaga qarab turibdimi. */
+    static volatile boolean resumed;
 
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
@@ -96,7 +98,7 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setGeolocationEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
-        web.addJavascriptInterface(new Notifier.Bridge(this), "TozaGilamApp");
+        web.addJavascriptInterface(new Notifier.Bridge(this, false), "TozaGilamApp");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
@@ -129,6 +131,11 @@ public class MainActivity extends Activity {
                             + "</body></html>";
                     view.loadDataWithBaseURL(BuildConfig.BASE_URL, html, "text/html", "utf-8", null);
                 }
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                view.evaluateJavascript(Notifier.JS, null);
             }
 
             @Override
@@ -247,6 +254,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
         ui.removeCallbacks(syncBar);
         ui.postDelayed(syncBar, 800);
     }
@@ -254,6 +262,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        resumed = false;
         ui.removeCallbacks(syncBar);
         CookieManager.getInstance().flush();
     }

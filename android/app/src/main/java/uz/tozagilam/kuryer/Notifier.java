@@ -17,20 +17,44 @@ final class Notifier {
     private static final long[] VIBRATE = {0, 500, 250, 500, 250, 500};
 
     /**
-     * WebView'da brauzer bildirishnomalari (Notification) yo'q. CRM sahifasi ularni chaqirganda
-     * telefonning o'z bildirishnomasi chiqishi uchun sahifaga shu ko'prik qo'yiladi.
+     * Sahifaga qo'yiladigan ko'prik. Uch ish qiladi:
+     * 1) WebView'da yo'q bo'lgan brauzer bildirishnomasini (Notification) telefon bildirishnomasiga ulaydi;
+     * 2) sahifa ekranda ko'rinmay turganda ham o'zini "ko'rinib turibdi" deb hisoblaydi,
+     *    aks holda CRM fonda yangi xabarlarni tekshirmay qo'yadi;
+     * 3) sahifa ichidagi xabar tasmasi (#ntf) paydo bo'lganda ham telefon bildirishnomasi chiqaradi.
      */
-    static final String JS = "(function(){if(window.__tgNotif)return;window.__tgNotif=1;"
+    static final String JS = "(function(){if(window.__tgApp)return;window.__tgApp=1;"
             + "function N(t,o){try{TozaGilamApp.notify(String(t||''),String((o&&o.body)||''),String((o&&o.tag)||''))}catch(e){}}"
             + "N.permission='granted';"
             + "N.requestPermission=function(cb){if(typeof cb==='function')cb('granted');return Promise.resolve('granted')};"
-            + "try{window.Notification=N}catch(e){}})()";
+            + "try{window.Notification=N}catch(e){}"
+            + "var vis={hidden:false,visibilityState:'visible',webkitHidden:false,webkitVisibilityState:'visible'};"
+            + "Object.keys(vis).forEach(function(k){var g={configurable:true,get:function(){return vis[k]}};"
+            + "try{Object.defineProperty(Document.prototype,k,g)}catch(e){}try{Object.defineProperty(document,k,g)}catch(e){}});"
+            + "try{document.hasFocus=function(){return true}}catch(e){}"
+            + "function watch(){var el=document.getElementById('ntf');if(!el||el.__tgW)return;el.__tgW=1;"
+            + "new MutationObserver(function(ms){ms.forEach(function(m){for(var i=0;i<m.addedNodes.length;i++){var n=m.addedNodes[i];"
+            + "if(n.nodeType!==1)continue;var s=n.querySelector?n.querySelector('small'):null;var b=s?s.textContent:'';"
+            + "var t=n.textContent||'';if(b)t=t.replace(b,'');"
+            + "try{TozaGilamApp.banner(String(t).trim(),String(b).trim())}catch(e){}}})}).observe(el,{childList:true})}"
+            + "watch();setInterval(watch,3000);})()";
 
     static final class Bridge {
         private final Context app;
+        private final boolean headless;
 
-        Bridge(Context c) {
+        Bridge(Context c, boolean headless) {
             app = c.getApplicationContext();
+            this.headless = headless;
+        }
+
+        /** Sahifadagi xabar tasmasi: foydalanuvchi ilovaga qarab turgan bo'lsa, takrorlash shart emas. */
+        @JavascriptInterface
+        public void banner(String title, String body) {
+            if (!headless && MainActivity.resumed) {
+                return;
+            }
+            show(app, title, body, "");
         }
 
         @JavascriptInterface
@@ -39,7 +63,18 @@ final class Notifier {
         }
     }
 
-    static void show(Context ctx, String title, String body, String tag) {
+    private static String lastKey = "";
+    private static long lastAt;
+
+    static synchronized void show(Context ctx, String title, String body, String tag) {
+        // Bitta xabar ikki yo'ldan kelishi mumkin: 15 soniya ichidagi takrorini o'tkazib yuboramiz
+        String key = title + "|" + body;
+        long nowMs = System.currentTimeMillis();
+        if (key.equals(lastKey) && nowMs - lastAt < 15_000) {
+            return;
+        }
+        lastKey = key;
+        lastAt = nowMs;
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) {
             return;
