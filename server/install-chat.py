@@ -149,7 +149,9 @@ def _app_put(h):
 HTML = r'''<style id="appchat-css">
 #appchat-btn{position:fixed;z-index:8;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(138px + env(safe-area-inset-bottom,0px));width:54px;height:54px;border-radius:50%;border:0;background:var(--accent,#0a6f79);color:var(--accent-ink,#fff);box-shadow:var(--shadow,0 4px 14px rgba(0,0,0,.2));display:flex;align-items:center;justify-content:center;padding:0}
 #appchat-btn svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-#appchat-badge{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;border-radius:11px;background:#d92d20;color:#fff;font:700 12px/22px system-ui,sans-serif;text-align:center;padding:0 6px;font-style:normal}
+#appchat-badge{position:absolute;top:-7px;right:-7px;min-width:26px;height:26px;border-radius:13px;background:#e11d14;color:#fff;font:800 14px/22px system-ui,sans-serif;text-align:center;padding:0 6px;font-style:normal;border:2px solid #fff;box-sizing:border-box}
+#appchat-btn.has{animation:appchat-pulse 1.6s ease-out infinite}
+@keyframes appchat-pulse{0%{box-shadow:0 0 0 0 rgba(225,29,20,.55)}70%{box-shadow:0 0 0 16px rgba(225,29,20,0)}100%{box-shadow:0 0 0 0 rgba(225,29,20,0)}}
 #appchat-panel{position:fixed;inset:0;z-index:40;background:var(--bg,#f1f5f6);color:var(--ink,#10252b);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
 #appchat-panel[hidden],#appchat-btn[hidden],#appchat-badge[hidden],#appchat-tip[hidden]{display:none!important}
 #appchat-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface,#fff);border-bottom:1px solid var(--line,#d5dfe2)}
@@ -177,7 +179,7 @@ HTML = r'''<style id="appchat-css">
 #appchat-foot:not(.rec) #appchat-rec,#appchat-foot:not(.rec) #appchat-cancel,#appchat-foot.rec textarea,#appchat-foot.rec #appchat-send{display:none}
 @media(min-width:900px){#appchat-panel>*{width:100%;max-width:760px;margin-left:auto;margin-right:auto}#appchat-btn{bottom:96px;right:28px}}
 </style>
-<script id="appchat-js" data-v="2">
+<script id="appchat-js" data-v="3">
 /* Jamoa chati: rahbar va xodimlar o'rtasida matn va ovozli xabarlar */
 (function(){
   var open=false,lastId=0,meId=null,busy=false,lastPoll=0,first=true,lastDay='';
@@ -213,7 +215,7 @@ HTML = r'''<style id="appchat-css">
   function show(){open=true;panel.hidden=false;try{history.pushState({appchat:1},'')}catch(e){}
     ls('appchat_seen',lastId);setBadge(0);list.scrollTop=list.scrollHeight;poll()}
   function hide(){open=false;panel.hidden=true;if(rec)stopRec(true)}
-  function setBadge(n){badge.hidden=!n;badge.textContent=n>99?'99+':String(n)}
+  function setBadge(n){badge.hidden=!n;badge.textContent=n>99?'99+':String(n);btn.classList.toggle('has',!!n)}
   function add(m){
     var e=list.querySelector('#appchat-empty');if(e)e.remove();
     var d=day(m.t);if(d!==lastDay){lastDay=d;list.appendChild(el('div','day',d))}
@@ -298,7 +300,7 @@ def main():
     h = open(hp, encoding='utf-8').read()
     upgrade = '/api/app/chat' in t or 'appchat-js' in h
     if upgrade:
-        if '(app-chat) v2 ----' in t and 'id="appchat-js" data-v="2"' in h:
+        if '(app-chat) v2 ----' in t and 'id="appchat-js" data-v="3"' in h:
             sys.exit("Allaqachon oxirgi versiya o'rnatilgan - hech narsa o'zgarmadi.")
     anchors = list(re.finditer(r"^([ \t]*)if u\.path == '/api/me':[ \t]*$", t, re.M))
     if len(anchors) != 1:
