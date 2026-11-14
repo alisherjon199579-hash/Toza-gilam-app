@@ -99,6 +99,7 @@ public class TrackService extends Service {
                 send();
             }
             watchNews();
+            Updater.check(TrackService.this, false, null);
             main.postDelayed(this, BEAT_EVERY_MS);
         }
     };
