@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+// CRM manzili. Domen o'zgarsa, faqat shu qatorni almashtiring.
+def crmUrl = 'https://fayz.162-250-122-181.sslip.io'
+def runNo = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int
+
+android {
+    namespace 'uz.tozagilam.kuryer'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'uz.fayzgilam.crm'
+        minSdk 24
+        targetSdk 34
+        versionCode runNo
+        versionName "1.0.${runNo}"
+        buildConfigField 'String', 'BASE_URL', "\"${crmUrl}\""
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        release {
+            // Har yig'ilganda imzo bir xil bo'lishi uchun: yangi versiya eskisining ustidan o'rnatiladi.
+            storeFile file('kuryer.p12')
+            storeType 'pkcs12'
+            storePassword 'tozagilam'
+            keyAlias 'kuryer'
+            keyPassword 'tozagilam'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
