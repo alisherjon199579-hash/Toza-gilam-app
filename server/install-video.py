@@ -7,7 +7,7 @@ import os, secrets, shutil, socket, subprocess, sys, time, urllib.request
 
 D = os.environ.get('GILAM_VIDEO_DIR', '/opt/gilam-video')
 PORT = os.environ.get('GILAM_VIDEO_PORT', '8095')
-BASE = os.environ.get('GILAM_VIDEO_URL', 'https://raw.githubusercontent.com/alisherjon199579-hash/toza-gilam-app/42137c4295a2d744020076c6bfc0557c16bac65d/server/')
+BASE = os.environ.get('GILAM_VIDEO_URL', 'https://raw.githubusercontent.com/alisherjon199579-hash/toza-gilam-app/1a768dc623c34c6df6eba9db467b66869e0ce592/server/')
 TEST = bool(os.environ.get('GILAM_VIDEO_TEST'))
 SRC = os.environ.get('GILAM_VIDEO_SRC')
 
