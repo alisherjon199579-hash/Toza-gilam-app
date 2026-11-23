@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Video Studio — o'zbekcha video yaratuvchi</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#0e0b1a;color:#eee9ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(20px + env(safe-area-inset-bottom))}
+h1{font-size:18px;margin:0;padding:12px 14px 4px;color:#c4a8ff}
+.p{padding:6px 14px}
+textarea,input[type=text],select{width:100%;font:inherit;font-size:15px;background:#181330;color:#eee9ff;border:1px solid #3b2f6b;border-radius:10px;padding:9px}
+textarea{height:72px;resize:none}
+button{font:inherit;color:#eee9ff;background:#2a2150;border:1px solid #4b3b8f;border-radius:10px;padding:9px 13px}
+button:active{background:#4b3b8f}
+.big{background:#7c4dff;border-color:#9b7bff;font-weight:700}
+.rec{background:#e5384f;border-color:#ff6b7f;font-weight:700}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+.row label{flex:none;font-size:13px;color:#a99bd6;display:flex;gap:5px;align-items:center}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0}.chips button{flex:none;font-size:12px;padding:5px 10px;color:#c4a8ff}
+#cv{display:block;margin:6px auto;max-width:100%;max-height:62vh;border-radius:12px;background:#000;border:1px solid #3b2f6b}
+#msg{font-size:13px;color:#c4a8ff;min-height:18px}
+.sc{background:#181330;border:1px solid #3b2f6b;border-radius:12px;padding:8px;margin:6px 0;display:grid;grid-template-columns:44px 1fr 56px 30px;gap:6px;align-items:center}
+.sc input{font-size:14px;padding:6px}.sc .t2{grid-column:2/5}
+.sc b{font-size:24px;text-align:center}
+video{width:100%;max-height:60vh;border-radius:12px;background:#000;margin-top:6px}
+small{color:#8f82bd}
+.box{background:#181330;border:1px solid #3b2f6b;border-radius:12px;padding:10px;margin:6px 0}
+.box input[type=range]{width:100%}
+#tele{display:none;margin:4px 14px;padding:10px;border-radius:10px;background:#2a2150;color:#fff;font-size:17px;line-height:1.4;text-align:center}
+.sc .t3{grid-column:1/5}
+</style>
+</head>
+<body>
+<h1>🎬 Video Studio</h1>
+<div class="p"><small>Nima haqida video kerakligini yozing. Men sahnalar, matn, rang va musiqa bilan tayyor video yarataman.</small></div>
+<div class="p"><textarea id="q" placeholder="Masalan: Toza Gilam gilam yuvish reklamasi, 20 soniya, bepul yetkazib berish va 6-7 kunda tayyor"></textarea>
+<div class="chips" id="chips"></div></div>
+<div class="p row"><select id="fmt"><option value="720x1280">📱 Tik-tok / Stories (tik)</option><option value="720x720">⬛ Kvadrat (Instagram)</option><option value="1280x720">🖥 Keng (YouTube)</option></select>
+<input type="text" id="brand" value="Toza Gilam" placeholder="Belgi (logotip matni)"></div>
+<div class="p row"><label><input type="checkbox" id="mus" checked> 🎵 Musiqa</label><button id="mic" style="display:none;flex:none">🎤</button><button class="big" id="gen">✨ Video rejasini yarat</button></div>
+<div class="p" id="msg"></div>
+<canvas id="cv" width="720" height="1280"></canvas>
+<div id="tele"></div>
+<div class="p"><div class="box"><b style="font-size:14px">🎙 Ovoz</b>
+<small style="display:block;margin:2px 0 6px">Diktor ovozini telefonda yozib oling (Ovoz yozgich yoki Telegram'da ovozli xabar), so'ng shu yerga yuklang. Matnni sahnalardagi "Diktor matni"dan o'qing.</small>
+<div class="row"><label style="flex:1"><input type="file" id="af" accept="audio/*,video/*" style="width:100%"></label></div>
+<div id="ai" style="font-size:12px;color:#a99bd6;margin:4px 0"></div>
+<label style="font-size:12px;color:#a99bd6">Ovoz balandligi <span id="vv">100</span>%</label><input type="range" id="vol" min="0" max="150" value="100">
+<label style="font-size:12px;color:#a99bd6">Musiqa balandligi <span id="mv">25</span>% (ovoz bo'lsa past qo'ying)</label><input type="range" id="mvol" min="0" max="100" value="25">
+<label style="font-size:12px;color:#a99bd6">Ovoz boshlanishi <span id="vs">0</span> s</label><input type="range" id="vst" min="0" max="10" step="0.5" value="0">
+<div class="row" style="margin-top:8px"><button id="fit">⏱ Sahnalarni ovozga moslash</button><button id="clr">✕ Ovozni olib tashla</button></div>
+<div class="row" style="margin-top:8px"><button id="scr">📋 Diktor matnini nusxala</button><button id="tts" style="display:none">🔊 Matnni tinglash</button></div></div></div>
+<div class="p"><div class="box" id="vbox" style="display:none"><b style="font-size:14px">🗣 Avtomatik ovoz (ayol / erkak)</b>
+<small style="display:block;margin:2px 0 6px">Diktor matni tanlangan ovozda o'zi o'qiladi va videoga yoziladi. Sahnalar ovoz uzunligiga moslanadi.</small>
+<div class="row"><select id="vg"><option value="f">👩 Ayol ovozi</option><option value="m">👨 Erkak ovozi</option></select><select id="vl"><option value="uz">O'zbek tili</option><option value="ru">Rus tili</option></select></div>
+<div class="row" style="margin-top:6px"><select id="vr"><option value="-10%">Sekinroq</option><option value="+0%" selected>Oddiy tezlik</option><option value="+10%">Tezroq</option></select><button class="big" id="vgo">🔊 Ovozni yarat</button></div>
+<div id="vst2" style="font-size:12px;color:#a99bd6;margin-top:4px"></div></div>
+<div class="box"><b style="font-size:14px">📋 Reja almashinuvi</b>
+<div class="row" style="margin-top:6px"><button id="pcp">Rejani nusxala</button><button id="pin">📥 Rejani joylash</button></div>
+<textarea id="pta" placeholder="Boshqa sahifadan nusxalangan rejani shu yerga qo'ying…" style="display:none;margin-top:6px;height:90px"></textarea></div></div>
+<div class="p row"><button id="play">▶ Ko'rish</button><button class="rec" id="rec">⏺ Videoga yozib ol</button></div>
+<div class="p"><b style="font-size:14px">Sahnalar</b> <small>(o'zgartirishingiz mumkin)</small><div id="list"></div><button id="add">+ Sahna qo'shish</button></div>
+<div class="p" id="res" style="display:none"><b style="font-size:14px">Tayyor video</b><video id="vid" controls playsinline></video><div class="row" style="margin-top:8px"><button class="big" id="save">💾 Saqlash</button></div></div>
+
+<script>
+var $=function(i){return document.getElementById(i)},cv=$('cv'),cx=cv.getContext('2d');
+var scenes=[],sample=null,dl=null,blobOut=null,ext='webm';
+var ANIMS=['zoom','slide','bounce','pop'];
+var EX=[["Reklama","Toza Gilam gilam yuvish reklamasi, 20 soniya: bepul yetkazib berish, 6-7 kunda tayyor, arzon narx, qo'ng'iroq qiling"],["Chegirma","Gilam yuvishga 20% chegirma e'loni, 15 soniya, bu hafta oxirigacha"],["Tabrik","Navro'z bayrami tabrigi, 15 soniya, iliq va chiroyli"],["Tanishtiruv","Toza Gilam kimligi, 5 ta sahna: manzil Gijduvon, narxlar, sifat, yetkazib berish"]];
+EX.forEach(function(x){var b=document.createElement('button');b.textContent=x[0];b.onclick=function(){$('q').value=x[1]};$('chips').appendChild(b)});
+scenes=[{t:"Toza Gilam",s:"Gilam yuvish xizmati",v:"Toza Gilam — gilam yuvish xizmati.",e:"🧺",d:3,bg:["#1b6ef3","#19b5a5"],a:"zoom"},{t:"Bepul yetkazib berish",s:"Olib ketamiz, olib kelamiz",v:"Gilamingizni bepul olib ketamiz va olib kelamiz.",e:"🚚",d:3.5,bg:["#7c4dff","#e5384f"],a:"slide"},{t:"6–7 kunda tayyor",s:"Toza va hidsiz",v:"Buyurtmangiz olti-yetti kunda toza va hidsiz tayyor.",e:"✨",d:3.5,bg:["#ff8a00","#e52e71"],a:"bounce"},{t:"Qo'ng'iroq qiling",s:"+998 91 921 37 89",v:"Hoziroq qo'ng'iroq qiling!",e:"📞",d:3.5,bg:["#00b09b","#1b6ef3"],a:"pop"}];
+function msg(t,c){$('msg').textContent=t||'';$('msg').style.color=c||'#c4a8ff'}
+/* ---------- sahnalar ro'yxati ---------- */
+function list(){var l=$('list');l.innerHTML='';scenes.forEach(function(s,i){var d=document.createElement('div');d.className='sc';
+ d.innerHTML='<input type="text" style="text-align:center;font-size:22px;padding:2px" maxlength="6"><input type="text" placeholder="Sarlavha"><input type="text" inputmode="decimal" placeholder="soniya"><button>✕</button><input class="t2" type="text" placeholder="Pastki matn"><input class="t3" type="text" placeholder="🎙 Diktor matni (ovozda o&#39;qiladigan gap)">';
+ var ins=d.querySelectorAll('input');
+ ins[0].value=s.e;ins[1].value=s.t;ins[2].value=s.d;ins[3].value=s.s;ins[4].value=s.v||'';ins[4].oninput=function(){s.v=ins[4].value;s._vb=null};
+ ins[0].oninput=function(){s.e=ins[0].value;if(!playing)draw(0)};ins[1].oninput=function(){s.t=ins[1].value;s._vb=null};ins[2].oninput=function(){s.d=Math.max(1,Math.min(15,parseFloat(String(ins[2].value).replace(',','.'))||3))};ins[3].oninput=function(){s.s=ins[3].value};
+ d.querySelector('button').onclick=function(){scenes.splice(i,1);list();draw(0)};l.appendChild(d)})}
+$('add').onclick=function(){scenes.push({t:"Yangi sahna",s:"",v:"",e:"⭐",d:3,bg:["#7c4dff","#1b6ef3"],a:"zoom"});list()};
+/* ---------- chizish ---------- */
+function total(){return scenes.reduce(function(a,s){return a+s.d},0)||1}
+function hex(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');return[parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]}
+function mix(a,b,k){var A=hex(a),B=hex(b);return'rgb('+A.map(function(v,i){return Math.round(v+(B[i]-v)*k)}).join(',')+')'}
+function ease(x){return x<0?0:x>1?1:1-Math.pow(1-x,3)}
+function back(x){x=Math.max(0,Math.min(1,x));var c=1.70158;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)}
+function wrap(t,maxW){var w=String(t).split(/\s+/),lines=[],cur='';w.forEach(function(x){var tt=cur?cur+' '+x:x;if(cx.measureText(tt).width>maxW&&cur){lines.push(cur);cur=x}else cur=tt});if(cur)lines.push(cur);return lines}
+function findScene(T){var a=0;for(var i=0;i<scenes.length;i++){if(T<a+scenes[i].d||i===scenes.length-1)return{i:i,lt:Math.min(T-a,scenes[i].d),a:a};a+=scenes[i].d}return{i:0,lt:0,a:0}}
+function draw(T){
+ var W=cv.width,H=cv.height;if(!scenes.length){cx.fillStyle='#000';cx.fillRect(0,0,W,H);return}
+ var f=findScene(T),s=scenes[f.i],lt=f.lt,prev=scenes[f.i-1],tr=ease(lt/0.5);
+ var c1=prev?mix(prev.bg[0],s.bg[0],tr):s.bg[0],c2=prev?mix(prev.bg[1],s.bg[1],tr):s.bg[1];
+ var g=cx.createLinearGradient(0,0,W*.4,H);g.addColorStop(0,c1);g.addColorStop(1,c2);cx.fillStyle=g;cx.fillRect(0,0,W,H);
+ /* suzuvchi doiralar */
+ for(var k=0;k<7;k++){var x=(Math.sin(T*.4+k*1.7)*.5+.5)*W,y=((k*.17+T*.03*(1+k%3*.3))%1.2-.1)*H,r=Math.min(W,H)*(.08+k%4*.05);cx.beginPath();cx.arc(x,y,r,0,7);cx.fillStyle='rgba(255,255,255,'+(.05+k%3*.025)+')';cx.fill()}
+ var u=Math.min(W,H)/720,fade=Math.min(ease(lt/0.5),ease((s.d-lt)/0.35)),cxm=W/2,portrait=H>W*1.2,wide=W>H*1.2;
+ var ey=H*(wide?.42:portrait?.34:.36),ty=H*(wide?.62:portrait?.55:.62);
+ /* emoji */
+ var es=Math.min(W,H)*(wide?.45:.42),sc=1,dy=0,rot=0;
+ if(s.a==='zoom')sc=.3+.7*back(lt/0.8);else if(s.a==='pop'){sc=back(lt/0.6);rot=(1-ease(lt/0.8))*-.5}else if(s.a==='bounce'){sc=ease(lt/.4);dy=-Math.abs(Math.sin(lt*4))*es*.12}else sc=ease(lt/.5);
+ dy+=Math.sin(T*2)*es*.03;
+ cx.save();cx.globalAlpha=fade;cx.translate(wide?W*.27:cxm,ey+dy);cx.rotate(rot+Math.sin(T*1.5)*.04);cx.scale(sc,sc);cx.font=es+'px system-ui,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji"';cx.textAlign='center';cx.textBaseline='middle';
+ cx.fillStyle='#fff';cx.shadowColor='rgba(0,0,0,.35)';cx.shadowBlur=30*u;cx.shadowOffsetY=12*u;cx.fillText(s.e||'',0,0);cx.restore();
+ /* matn */
+ var tx=wide?W*.68:cxm,tw=wide?W*.56:W*.86,ty2=wide?H*.45:ty;
+ var inT=ease((lt-.25)/.6),off=s.a==='slide'?(1-inT)*W*.4:(1-inT)*60*u;
+ cx.save();cx.globalAlpha=fade*inT;cx.textAlign='center';cx.textBaseline='top';cx.fillStyle='#fff';cx.shadowColor='rgba(0,0,0,.35)';cx.shadowBlur=14*u;
+ var fs=Math.round((wide?58:portrait?78:64)*u);cx.font='800 '+fs+'px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+ var L=wrap(s.t||'',tw);while(L.length>3&&fs>30){fs-=6;cx.font='800 '+fs+'px system-ui,-apple-system,sans-serif';L=wrap(s.t,tw)}
+ var y=ty2;L.forEach(function(l){cx.fillText(l,tx+off,y);y+=fs*1.15});
+ if(s.s){var f2=Math.round(fs*.5);cx.font='500 '+f2+'px system-ui,-apple-system,sans-serif';cx.globalAlpha=fade*ease((lt-.5)/.6)*.92;y+=f2*.4;wrap(s.s,tw).forEach(function(l){cx.fillText(l,tx+off*.5,y);y+=f2*1.25})}
+ cx.restore();
+ /* belgi va progress */
+ var br=$('brand').value;if(br){cx.save();cx.globalAlpha=.85;cx.font='700 '+Math.round(26*u)+'px system-ui,sans-serif';cx.fillStyle='#fff';cx.textAlign='left';cx.fillText('● '+br,36*u,40*u+(portrait?20*u:0));cx.restore()}
+ cx.fillStyle='rgba(255,255,255,.25)';cx.fillRect(0,H-8*u,W,8*u);cx.fillStyle='rgba(255,255,255,.9)';cx.fillRect(0,H-8*u,W*Math.min(1,T/total()),8*u);
+}
+/* ---------- ijro ---------- */
+var raf=0,playing=false;
+function runAnim(onTick,onEnd){var t0=performance.now(),tot=total();playing=true;(function loop(){var T=(performance.now()-t0)/1000;if(T>=tot||!playing){draw(Math.min(T,tot));playing=false;onEnd&&onEnd();return}draw(T);onTick&&onTick(T);raf=requestAnimationFrame(loop)})()}
+$('play').onclick=function(){if(playing){playing=false;return}runAnim()};
+function sizeCv(){var p=$('fmt').value.split('x');cv.width=+p[0];cv.height=+p[1];draw(0)}
+$('fmt').onchange=sizeCv;$('brand').oninput=function(){if(!playing)draw(0)};
+/* ---------- musiqa ---------- */
+function music(ctx,dest,dur,vol){
+ var sc=[0,2,4,7,9,12],base=196,bpm=104,beat=60/bpm,t0=ctx.currentTime+.05,m=ctx.createGain();m.gain.value=.22*(vol==null?1:vol);m.connect(dest);
+ var prog=[[0,4,7],[5,9,12],[7,11,14],[3,7,10]];
+ for(var b=0;b*beat<dur;b++){var t=t0+b*beat,ch=prog[Math.floor(b/4)%4];
+  if(b%4===0)ch.forEach(function(n){note(ctx,m,base/2*Math.pow(2,n/12),t,beat*3.8,'sine',.16)});
+  var n=sc[(b*3+Math.floor(b/8)*2)%sc.length]+(b%8<4?12:0);note(ctx,m,base*Math.pow(2,n/12),t,beat*.9,'triangle',.18);
+  if(b%2===0)note(ctx,m,base*Math.pow(2,(sc[(b*5)%6]+24)/12),t+beat*.5,beat*.4,'triangle',.07)}
+}
+function note(ctx,out,f,t,d,type,v){var o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.03);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(out);o.start(t);o.stop(t+d+.05)}
+/* ---------- yozib olish ---------- */
+$('rec').onclick=function(){
+ if(playing||!scenes.length)return;
+ if(!window.MediaRecorder||!cv.captureStream){msg("Bu qurilmada videoga yozib bo'lmaydi.",'#ff7b72');return}
+ var mimes=['video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'],mt='';
+ for(var i=0;i<mimes.length;i++){if(MediaRecorder.isTypeSupported(mimes[i])){mt=mimes[i];break}}
+ ext=/mp4/.test(mt)?'mp4':'webm';
+ var stream=cv.captureStream(30),ctx=null,tot=total();
+ if($('mus').checked||voiceBuf||scenes.some(function(s){return s._vb})){try{ctx=new (window.AudioContext||window.webkitAudioContext)();var dst=ctx.createMediaStreamDestination();
+   if($('mus').checked)music(ctx,dst,tot+.3,$('mvol').value/100*((voiceBuf||scenes.some(function(s){return s._vb}))?1:1.6));
+   if(voiceBuf){var src=ctx.createBufferSource(),vg=ctx.createGain();src.buffer=voiceBuf;vg.gain.value=$('vol').value/100;src.connect(vg);vg.connect(dst);src.start(ctx.currentTime+.05+(+$('vst').value))}
+   var tz=ctx.currentTime+.05,acc=0;scenes.forEach(function(s){if(s._vb){var sv=ctx.createBufferSource(),gv=ctx.createGain();sv.buffer=s._vb;gv.gain.value=1.3;sv.connect(gv);gv.connect(dst);sv.start(tz+acc+.3)}acc+=s.d});
+   dst.stream.getAudioTracks().forEach(function(t){stream.addTrack(t)})}catch(e){ctx=null;msg("Ovoz qo'shilmadi: "+e.message,'#ffa657')}}
+ var chunks=[],rc;try{rc=new MediaRecorder(stream,mt?{mimeType:mt,videoBitsPerSecond:4000000}:{})}catch(e){msg("Yozib olish boshlanmadi: "+e.message,'#ff7b72');return}
+ rc.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
+ rc.onstop=function(){if(ctx)try{ctx.close()}catch(e){};blobOut=new Blob(chunks,{type:mt||'video/webm'});$('vid').src=URL.createObjectURL(blobOut);$('res').style.display='block';msg('Video tayyor ✓ ('+(blobOut.size/1048576).toFixed(1)+' MB). Pastda ko\'ring va saqlang.');$('rec').disabled=false;$('play').disabled=false;$('res').scrollIntoView({behavior:'smooth'})};
+ $('rec').disabled=true;$('play').disabled=true;rc.start(250);
+ runAnim(function(T){msg('⏺ Yozilmoqda… '+Math.ceil(tot-T)+' s. Sahifadan chiqib ketmang.','#ff6b7f')},function(){setTimeout(function(){rc.stop()},400)});
+};
+$('save').onclick=function(){
+ if(!blobOut)return;if(!dl){var a=document.createElement('a');a.href=URL.createObjectURL(blobOut);a.download='toza-gilam-video.'+ext;document.body.appendChild(a);a.click();a.remove();msg('Yuklab olinmoqda… (Yuklashlar papkasida)');return}
+ dl.save({filename:'toza-gilam-video.'+ext,data:blobOut}).then(function(){msg('Saqlandi ✓')}).catch(function(e){msg(e&&e.code==='declined'?'Bekor qilindi.':"Saqlab bo'lmadi: "+((e&&e.message)||e),'#ffa657')});
+};
+/* ---------- AI reja ---------- */
+var SYS="Sen qisqa reklama/e'lon videolari uchun sahna rejasi tuzuvchi o'zbekcha (lotin) yordamchisan. Foydalanuvchi talabiga ko'ra FAQAT JSON qaytar, boshqa matn yo'q.\nShakl: {\"scenes\":[{\"t\":\"sarlavha (ko'pi bilan 5 so'z)\",\"s\":\"pastki matn (ko'pi bilan 8 so'z, bo'sh bo'lishi mumkin)\",\"v\":\"diktor matni: shu sahnada ovozda o'qiladigan 1-2 qisqa, tabiiy gap (sahna soniyasiga sig'sin: soniyasiga ~2,5 so'z)\",\"e\":\"BITTA mos emoji\",\"d\":soniya (2.5 dan 5 gacha),\"bg\":[\"#rang1\",\"#rang2\"],\"a\":\"zoom|slide|bounce|pop\"}]}\nQoidalar: 3 dan 8 gacha sahna; umumiy davomiylik so'ralganga yaqin bo'lsin (aytilmasa 15-25 soniya); birinchi sahna e'tiborni tortsin, oxirgisi chaqiriq (call to action) bo'lsin; ranglar to'yingan va yoqimli, matn oq rangda o'qilishi uchun to'q-o'rta tusda; sahnalar bir-biridan rang va animatsiya bilan farq qilsin; matn o'zbekcha lotin yozuvida, imlosi to'g'ri. Toza Gilam haqida: gilam yuvish xizmati, Gijduvon tumani Sarvarida, 08:00-21:00, tel +998 91 921 37 89, bepul yetkazib berish, 6-7 kunda tayyor, 1 m2 gilam 12 000 so'm. Faqat so'ralgan mavzuga tegishli faktlarni ishlat, o'ylab topma.";
+function normScenes(r){var a=(r&&r.scenes)||r;if(!Array.isArray(a)||!a.length)throw new Error("Reja noto'g'ri chiqdi");
+ return a.slice(0,10).map(function(s){return{t:String(s.t||''),s:String(s.s||''),v:String(s.v||''),e:String(s.e||'⭐'),d:Math.max(2,Math.min(12,+s.d||3.5)),bg:(Array.isArray(s.bg)&&/^#[0-9a-f]{3,6}$/i.test(s.bg[0])&&/^#[0-9a-f]{3,6}$/i.test(s.bg[1]))?s.bg:['#7c4dff','#1b6ef3'],a:ANIMS.indexOf(s.a)>=0?s.a:'zoom'}})}
+$('gen').onclick=function(){
+ var q=$('q').value.trim();if(!q){msg('Avval nima haqida video kerakligini yozing.','#ff7b72');return}
+ if(!sample){msg("AI bu yerda mavjud emas (Claude ichida oching).",'#ff7b72');return}
+ $('gen').disabled=true;msg('Reja tuzilmoqda…');
+ sample.json(SYS+"\n\nTALAB: "+q,{cache:false}).then(function(r){
+  scenes=normScenes(r);
+  list();draw(0);msg('Reja tayyor: '+scenes.length+' sahna, '+total().toFixed(0)+' soniya. ▶ Ko\'ring, kerak bo\'lsa matnni tuzating, so\'ng ⏺ bosing.')
+ }).catch(function(e){msg(e&&e.code==='not_granted'?'Ruxsat berilmadi.':'Xatolik: '+((e&&e.message)||e),'#ff7b72')}).finally(function(){$('gen').disabled=false});
+};
+if(window.claude&&claude.use){
+ claude.use('sample').then(function(s){sample=s}).catch(function(){});
+ claude.use('downloads').then(function(d){dl=d}).catch(function(){});
+ claude.use('dictation').then(function(d){if(!d)return;var b=$('mic'),on=false;b.style.display='';d.onFinal(function(o){$('q').value=($('q').value+' '+o.text).trim()});d.onPartial(function(){});d.onState(function(s){on=s.state==='listening';b.textContent=on?'⏹':'🎤'});b.onclick=function(){if(on)d.stop();else d.start().catch(function(){})}}).catch(function(){});
+}
+
+/* ---------- ovoz (diktor) ---------- */
+var voiceBuf=null;
+function ainfo(){var el=$('ai');if(!voiceBuf){el.textContent="Ovoz yuklanmagan.";return}var v=voiceBuf.duration+(+$('vst').value),t=total();el.textContent='Ovoz: '+voiceBuf.duration.toFixed(1)+' s, video: '+t.toFixed(1)+' s'+(v>t+.3?" — ovoz videodan uzun, \"Sahnalarni ovozga moslash\"ni bosing.":' ✓')}
+$('af').onchange=function(){var f=this.files&&this.files[0];if(!f)return;$('ai').textContent='Yuklanmoqda…';
+ f.arrayBuffer().then(function(ab){var C=new (window.AudioContext||window.webkitAudioContext)();return C.decodeAudioData(ab).then(function(b){try{C.close()}catch(e){};voiceBuf=b;ainfo()})}).catch(function(){voiceBuf=null;$('ai').textContent="Bu faylni o'qib bo'lmadi. mp3, m4a, wav yoki ogg yuklang.";$('ai').style.color='#ff7b72'})};
+$('clr').onclick=function(){voiceBuf=null;$('af').value='';ainfo()};
+['vol','mvol','vst'].forEach(function(id){$(id).oninput=function(){$({vol:'vv',mvol:'mv',vst:'vs'}[id]).textContent=$(id).value;ainfo()}});
+$('fit').onclick=function(){if(!voiceBuf){msg('Avval ovoz yuklang.','#ff7b72');return}var need=voiceBuf.duration+(+$('vst').value)+.8,t=total(),k=need/t;scenes.forEach(function(s){s.d=Math.max(1.5,Math.round(s.d*k*10)/10)});list();ainfo();msg('Sahnalar ovozga moslandi: '+total().toFixed(1)+' s.')};
+function script(){var T=0,s='';scenes.forEach(function(x,i){s+='['+T.toFixed(0)+'-'+(T+x.d).toFixed(0)+' s] '+(x.v||x.t)+'\n';T+=x.d});return s}
+$('scr').onclick=function(){var t=script();function ok(){msg('Diktor matni nusxalandi. Uni telefonda ovoz yozgichda o\'qing.')}function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove();ok()}try{navigator.clipboard.writeText(t).then(ok).catch(fb)}catch(e){fb()}};
+var ttsN=null;
+if(window.claude&&claude.use)claude.use('tts').then(function(t){if(!t)return;ttsN=t;$('tts').style.display=''}).catch(function(){});
+$('tts').onclick=function(){if(!ttsN)return;ttsN.speak(scenes.map(function(s){return{text:s.v||s.t,language:'uz'}})).catch(function(){})};
+/* o'qish yordamchisi: ko'rishda diktor matni ekranda chiqadi (videoga tushmaydi) */
+var _ra=runAnim;runAnim=function(a,b){var last=-1;_ra(function(T){a&&a(T);var f=findScene(T);if(f.i!==last){last=f.i;var s=scenes[f.i],te=$('tele');te.style.display='block';te.textContent='🎙 '+(s.v||s.t)}},function(){$('tele').style.display='none';b&&b()})};
+ainfo();
+
+/* ---------- reja almashinuvi ---------- */
+$('pcp').onclick=function(){var t=JSON.stringify({scenes:scenes.map(function(s){return{t:s.t,s:s.s,v:s.v,e:s.e,d:s.d,bg:s.bg,a:s.a}})});
+ function ok(){msg("Reja nusxalandi. Uni avtomatik ovozli sahifaga joylang.")}function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove();ok()}
+ try{navigator.clipboard.writeText(t).then(ok).catch(fb)}catch(e){fb()}};
+$('pin').onclick=function(){var ta=$('pta');if(ta.style.display==='none'){ta.style.display='block';ta.focus();msg("Rejani qo'yib, yana '📥 Rejani joylash' ni bosing.");return}
+ try{scenes=normScenes(JSON.parse(ta.value));list();draw(0);ta.value='';ta.style.display='none';msg('Reja joylandi: '+scenes.length+' sahna.')}catch(e){msg("Reja matni noto'g'ri. Nusxalangan butun matnni qo'ying.",'#ff7b72')}};
+/* ---------- avtomatik ovoz (faqat o'z serveringizda) ---------- */
+try{fetch('tts?ping=1').then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.ok)$('vbox').style.display='block'}).catch(function(){})}catch(e){}
+$('vgo').onclick=function(){
+ if(!scenes.length)return;var C=new (window.AudioContext||window.webkitAudioContext)(),i=0,b=$('vgo'),st=$('vst2');b.disabled=true;
+ (function nx(){
+  if(i>=scenes.length){try{C.close()}catch(e){};b.disabled=false;list();draw(0);var n=scenes.filter(function(s){return s._vb}).length;st.textContent='Tayyor: '+n+' sahnaga ovoz. Video '+total().toFixed(1)+' s.';msg("Ovoz tayyor ✓ ▶ Ko'ring yoki ⏺ bilan videoga yozib oling.");return}
+  var s=scenes[i],t=(s.v||s.t||'').trim();if(!t){s._vb=null;i++;return nx()}
+  st.textContent='Ovoz yaratilmoqda: '+(i+1)+'/'+scenes.length+'…';
+  fetch('tts?v='+$('vg').value+'&l='+$('vl').value+'&r='+encodeURIComponent($('vr').value)+'&t='+encodeURIComponent(t)).then(function(r){if(!r.ok)throw new Error('server '+r.status);return r.arrayBuffer()})
+   .then(function(ab){return C.decodeAudioData(ab)}).then(function(buf){s._vb=buf;s.d=Math.max(s.d,Math.ceil((buf.duration+.8)*10)/10);i++;nx()})
+   .catch(function(e){b.disabled=false;st.textContent='';msg("Ovoz yaratib bo'lmadi: "+(e&&e.message||e),'#ff7b72')});
+ })();
+};
+sizeCv();list();draw(1);
+</script>
+</body>
+</html>
