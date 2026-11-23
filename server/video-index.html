@@ -55,6 +55,7 @@ small{color:#8f82bd}
 <div class="p"><div class="box" id="vbox" style="display:none"><b style="font-size:14px">🗣 Avtomatik ovoz (ayol / erkak)</b>
 <small style="display:block;margin:2px 0 6px">Diktor matni tanlangan ovozda o'zi o'qiladi va videoga yoziladi. Sahnalar ovoz uzunligiga moslanadi.</small>
 <div class="row"><select id="vg"><option value="f">👩 Ayol ovozi</option><option value="m">👨 Erkak ovozi</option></select><select id="vl"><option value="uz">O'zbek tili</option><option value="ru">Rus tili</option></select></div>
+<div class="row" style="margin-top:6px"><select id="vw"><option value="screen" selected>Ekrandagi matnni o'qisin</option><option value="script">Diktor matnini o'qisin</option></select><label><input type="checkbox" id="vauto" checked> Yozishda o'zi yaratsin</label></div>
 <div class="row" style="margin-top:6px"><select id="vr"><option value="-10%">Sekinroq</option><option value="+0%" selected>Oddiy tezlik</option><option value="+10%">Tezroq</option></select><button class="big" id="vgo">🔊 Ovozni yarat</button></div>
 <div id="vst2" style="font-size:12px;color:#a99bd6;margin-top:4px"></div></div>
 <div class="box"><b style="font-size:14px">📋 Reja almashinuvi</b>
@@ -135,6 +136,10 @@ function note(ctx,out,f,t,d,type,v){var o=ctx.createOscillator(),g=ctx.createGai
 /* ---------- yozib olish ---------- */
 $('rec').onclick=function(){
  if(playing||!scenes.length)return;
+ if($('vbox').style.display==='block'&&$('vauto').checked&&scenes.some(function(s){return !s._vb&&readText(s)})){genVoice(startRec);return}
+ startRec()};
+function startRec(){
+ if(playing||!scenes.length)return;
  if(!window.MediaRecorder||!cv.captureStream){msg("Bu qurilmada videoga yozib bo'lmaydi.",'#ff7b72');return}
  var mimes=['video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'],mt='';
  for(var i=0;i<mimes.length;i++){if(MediaRecorder.isTypeSupported(mimes[i])){mt=mimes[i];break}}
@@ -150,7 +155,8 @@ $('rec').onclick=function(){
  rc.onstop=function(){if(ctx)try{ctx.close()}catch(e){};blobOut=new Blob(chunks,{type:mt||'video/webm'});$('vid').src=URL.createObjectURL(blobOut);$('res').style.display='block';msg('Video tayyor ✓ ('+(blobOut.size/1048576).toFixed(1)+' MB). Pastda ko\'ring va saqlang.');$('rec').disabled=false;$('play').disabled=false;$('res').scrollIntoView({behavior:'smooth'})};
  $('rec').disabled=true;$('play').disabled=true;rc.start(250);
  runAnim(function(T){msg('⏺ Yozilmoqda… '+Math.ceil(tot-T)+' s. Sahifadan chiqib ketmang.','#ff6b7f')},function(){setTimeout(function(){rc.stop()},400)});
-};
+
+}
 $('save').onclick=function(){
  if(!blobOut)return;if(!dl){var a=document.createElement('a');a.href=URL.createObjectURL(blobOut);a.download='toza-gilam-video.'+ext;document.body.appendChild(a);a.click();a.remove();msg('Yuklab olinmoqda… (Yuklashlar papkasida)');return}
  dl.save({filename:'toza-gilam-video.'+ext,data:blobOut}).then(function(){msg('Saqlandi ✓')}).catch(function(e){msg(e&&e.code==='declined'?'Bekor qilindi.':"Saqlab bo'lmadi: "+((e&&e.message)||e),'#ffa657')});
@@ -186,9 +192,9 @@ function script(){var T=0,s='';scenes.forEach(function(x,i){s+='['+T.toFixed(0)+
 $('scr').onclick=function(){var t=script();function ok(){msg('Diktor matni nusxalandi. Uni telefonda ovoz yozgichda o\'qing.')}function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove();ok()}try{navigator.clipboard.writeText(t).then(ok).catch(fb)}catch(e){fb()}};
 var ttsN=null;
 if(window.claude&&claude.use)claude.use('tts').then(function(t){if(!t)return;ttsN=t;$('tts').style.display=''}).catch(function(){});
-$('tts').onclick=function(){if(!ttsN)return;ttsN.speak(scenes.map(function(s){return{text:s.v||s.t,language:'uz'}})).catch(function(){})};
+$('tts').onclick=function(){if(!ttsN)return;ttsN.speak(scenes.map(function(s){return{text:readText(s)||s.t,language:'uz'}})).catch(function(){})};
 /* o'qish yordamchisi: ko'rishda diktor matni ekranda chiqadi (videoga tushmaydi) */
-var _ra=runAnim;runAnim=function(a,b){var last=-1;_ra(function(T){a&&a(T);var f=findScene(T);if(f.i!==last){last=f.i;var s=scenes[f.i],te=$('tele');te.style.display='block';te.textContent='🎙 '+(s.v||s.t)}},function(){$('tele').style.display='none';b&&b()})};
+var _ra=runAnim;runAnim=function(a,b){var last=-1;_ra(function(T){a&&a(T);var f=findScene(T);if(f.i!==last){last=f.i;var s=scenes[f.i],te=$('tele');te.style.display='block';te.textContent='🎙 '+(readText(s)||s.t)}},function(){$('tele').style.display='none';b&&b()})};
 ainfo();
 
 /* ---------- reja almashinuvi ---------- */
@@ -199,17 +205,19 @@ $('pin').onclick=function(){var ta=$('pta');if(ta.style.display==='none'){ta.sty
  try{scenes=normScenes(JSON.parse(ta.value));list();draw(0);ta.value='';ta.style.display='none';msg('Reja joylandi: '+scenes.length+' sahna.')}catch(e){msg("Reja matni noto'g'ri. Nusxalangan butun matnni qo'ying.",'#ff7b72')}};
 /* ---------- avtomatik ovoz (faqat o'z serveringizda) ---------- */
 try{fetch('tts?ping=1').then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.ok)$('vbox').style.display='block'}).catch(function(){})}catch(e){}
-$('vgo').onclick=function(){
+function readText(s){var w=$('vw')?$('vw').value:'screen';if(w==='script'&&s.v)return s.v.trim();return [s.t,s.s].filter(Boolean).join('. ').trim()}
+function genVoice(cb){
  if(!scenes.length)return;var C=new (window.AudioContext||window.webkitAudioContext)(),i=0,b=$('vgo'),st=$('vst2');b.disabled=true;
  (function nx(){
-  if(i>=scenes.length){try{C.close()}catch(e){};b.disabled=false;list();draw(0);var n=scenes.filter(function(s){return s._vb}).length;st.textContent='Tayyor: '+n+' sahnaga ovoz. Video '+total().toFixed(1)+' s.';msg("Ovoz tayyor ✓ ▶ Ko'ring yoki ⏺ bilan videoga yozib oling.");return}
-  var s=scenes[i],t=(s.v||s.t||'').trim();if(!t){s._vb=null;i++;return nx()}
+  if(i>=scenes.length){try{C.close()}catch(e){};b.disabled=false;list();draw(0);var n=scenes.filter(function(s){return s._vb}).length;st.textContent='Tayyor: '+n+' sahnaga ovoz. Video '+total().toFixed(1)+' s.';msg("Ovoz tayyor ✓ ▶ Ko'ring yoki ⏺ bilan videoga yozib oling.");if(cb)cb();return}
+  var s=scenes[i],t=readText(s);if(!t){s._vb=null;i++;return nx()}
   st.textContent='Ovoz yaratilmoqda: '+(i+1)+'/'+scenes.length+'…';
   fetch('tts?v='+$('vg').value+'&l='+$('vl').value+'&r='+encodeURIComponent($('vr').value)+'&t='+encodeURIComponent(t)).then(function(r){if(!r.ok)throw new Error('server '+r.status);return r.arrayBuffer()})
    .then(function(ab){return C.decodeAudioData(ab)}).then(function(buf){s._vb=buf;s.d=Math.max(s.d,Math.ceil((buf.duration+.8)*10)/10);i++;nx()})
    .catch(function(e){b.disabled=false;st.textContent='';msg("Ovoz yaratib bo'lmadi: "+(e&&e.message||e),'#ff7b72')});
  })();
-};
+}
+$('vgo').onclick=function(){genVoice()};
 sizeCv();list();draw(1);
 </script>
 </body>
