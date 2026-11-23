@@ -78,7 +78,20 @@ def main():
     new_h = h
     for old, new in EDITS:
         n = new_h.count(old)
-        if n != 1:
+        if n == 0 and old.startswith('>Bonus'):
+            # kutilmagan belgi (probel/minus) bo'lsa - moslashuvchan qidiruv
+            import re
+            rx = re.compile(r">\s*Bonus\W{0,4}\$\{o\.disc\}\s*%\s*</span>")
+            ms = rx.findall(new_h)
+            if len(ms) == 1:
+                new_h = new_h.replace(ms[0], new)
+                continue
+            i = new_h.find('Bonus')
+            while i != -1 and 'o.disc' not in new_h[i:i+30]:
+                i = new_h.find('Bonus', i + 1)
+            print('Eslatma: kartadagi "Bonus" yorlig\'i topilmadi, o\'zgartirilmadi:', repr(new_h[max(0,i-20):i+50]) if i != -1 else '-')
+            continue
+        if n != 1 and not (n == 0 and old.startswith('>Bonus')):
             sys.exit("Mos kelmadi (%r: %d ta) - hech narsa o'zgarmadi." % (old[:40], n))
         if new.startswith('@@BLOCK@@'):
             new = BLOCK.replace('__MAXC__', str(CG_MAX_COURIER)) + new[len('@@BLOCK@@'):]
