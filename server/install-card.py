@@ -3,7 +3,8 @@
 
 CRM sahifasiga "Karta" tugmasi qo'shiladi (chap pastda). Bosilsa karta raqami va
 egasining ismi chiqadi, "Nusxalash" tugmasi raqamni nusxalaydi.
-Tugma dostavchi va rahbarga ko'rinadi (yuvuvchi va qadoqlovchiga ko'rinmaydi).
+Tugma faqat dostavchikka ko'rinadi (rahbar, yuvuvchi va qadoqlovchiga ko'rinmaydi).
+Joyi: chat tugmasi bilan bir qatorda, chap tomonda.
 
 Karta raqami GitHub'da saqlanmaydi: ishga tushirishda beriladi.
 To'lov QR kodi (server/card-qr.jpg) o'zgartirilmasdan, karta oynasida karta ostida chiqadi.
@@ -21,9 +22,10 @@ QR_URL = os.environ.get('QR_URL', 'https://raw.githubusercontent.com/alisherjon1
 QR_FILE = os.environ.get('QR_FILE', '')
 
 HTML = r'''<style id="appcard-css">
-#appcard-btn{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:9998;display:none;
-  align-items:center;gap:6px;border:0;border-radius:24px;padding:12px 16px;background:#0b6b74;color:#fff;
-  font:600 15px/1 system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:pointer}
+#appcard-btn{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(138px + env(safe-area-inset-bottom,0px));z-index:8;display:none;
+  align-items:center;gap:6px;height:54px;border:0;border-radius:27px;padding:0 18px;background:var(--accent,#0a6f79);color:var(--accent-ink,#fff);
+  font:600 15px/1 system-ui,sans-serif;box-shadow:var(--shadow,0 4px 14px rgba(0,0,0,.2));cursor:pointer}
+@media(min-width:900px){#appcard-btn{bottom:96px;left:28px}}
 #appcard-ov{position:fixed;inset:0;z-index:9999;background:rgba(10,20,25,.55);display:none;align-items:flex-end;justify-content:center}
 #appcard-ov.on{display:flex}
 #appcard-sh{width:100%;max-width:460px;max-height:94vh;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;padding:20px 20px calc(22px + env(safe-area-inset-bottom,0px));
@@ -63,14 +65,21 @@ HTML = r'''<style id="appcard-css">
     ov.onclick=function(e){if(e.target===ov)ov.classList.remove('on')};
     cp.onclick=function(){copy(String(CARD).replace(/\D/g,'')).then(function(){cp.textContent='Nusxalandi ✓'},
       function(){cp.textContent='Nusxalab bo‘lmadi'});setTimeout(function(){cp.textContent='Raqamni nusxalash'},1800)}}
-  function allowed(){return role===null||role==='courier'||role==='admin'}
+  var LBL={'Dostavchik':'courier','Rahbar':'admin','Yuvuvchi':'washer','Qadoqlovchi':'packer'};
+  function headRole(){try{var all=document.body.getElementsByTagName('*');
+    for(var i=0;i<all.length;i++){var e=all[i];if(e.children.length||!LBL.hasOwnProperty((e.textContent||'').trim()))continue;
+      var r=e.getBoundingClientRect();if(r.height<=0||r.top<0||r.top>150)continue;
+      var t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+      if(t===e)return LBL[e.textContent.trim()]}}catch(x){}return null}
+  function allowed(){return role==='courier'}
   function tick(){try{
     if(!btn)build();
     var on=logged();
-    if(on&&role===null){role=findRole(S);
+    if(on&&role===null){role=findRole(S)||headRole();
       if(role===null&&!asked){asked=true;fetch('/api/me',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null})
-        .then(function(d){role=findRole(d)||role}).catch(function(){})}}
+        .then(function(d){role=findRole(d)||headRole()||role}).catch(function(){})}}
     if(!on)role=null;
+    if(on&&role===null)role=headRole();
     btn.style.display=(on&&allowed())?'flex':'none'}catch(e){}}
   setInterval(tick,1000);
 })();
