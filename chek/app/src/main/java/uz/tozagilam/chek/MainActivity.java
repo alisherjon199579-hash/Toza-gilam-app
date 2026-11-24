@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(24, 24, 24, 24);
         TextView t = new TextView(this);
-        t.setText("Toza Gilam Chek v4 (QR alohida)\nCRM'da \"Yetkazildi\" bosilganda chek shu terminaldan chiqadi.");
+        t.setText("Toza Gilam Chek v5 (QR variantlar)\nCRM'da \"Yetkazildi\" bosilganda chek shu terminaldan chiqadi.");
         t.setTextSize(16);
         root.addView(t);
         url = new EditText(this);
@@ -56,7 +56,10 @@ public class MainActivity extends Activity {
                         JSONArray a = new JSONArray();
                         a.put(new JSONObject().put("t", "TOZA GILAM").put("s", 3).put("p", "center").put("b", 1));
                         a.put(new JSONObject().put("t", "Sinov cheki - printer ishlayapti").put("s", 2).put("p", "center"));
-                        a.put(new JSONObject().put("q", "https://www.instagram.com/gilam_yuvish_korxonasii").put("s", 6).put("p", "center"));
+                        for (int v = 0; v <= 4; v++) {
+                            a.put(new JSONObject().put("t", "Variant " + v).put("s", 2).put("p", "center"));
+                            a.put(new JSONObject().put("q", "https://www.instagram.com/gilam_yuvish_korxonasii").put("m", v).put("p", "center"));
+                        }
                         a.put(new JSONObject().put("t", "@gilam_yuvish_korxonasii").put("s", 2).put("p", "center"));
                         String e = Printer.print(MainActivity.this, a);
                         Cfg.status(MainActivity.this, e == null ? "sinov chek chiqdi" : "XATO: " + e);

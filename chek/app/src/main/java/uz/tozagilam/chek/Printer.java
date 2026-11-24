@@ -61,6 +61,34 @@ public class Printer {
         return b;
     }
 
+    static Bitmap variant(String text, int mode) throws Exception {
+        Bitmap b = qr(text, 240);
+        int w = b.getWidth(), h = b.getHeight();
+        if (mode == 1) { // RGB_565
+            Bitmap c = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565);
+            new android.graphics.Canvas(c).drawBitmap(b, 0, 0, null);
+            return c;
+        }
+        if (mode == 2) { // teskari ranglar
+            int[] p = new int[w * h]; b.getPixels(p, 0, w, 0, 0, w, h);
+            for (int i = 0; i < p.length; i++) p[i] = (p[i] == Color.BLACK) ? Color.WHITE : Color.BLACK;
+            Bitmap c = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); c.setPixels(p, 0, w, 0, 0, w, h); return c;
+        }
+        if (mode == 3) { // PNG orqali qayta o'qilgan
+            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+            b.compress(Bitmap.CompressFormat.PNG, 100, bo);
+            byte[] d = bo.toByteArray();
+            return android.graphics.BitmapFactory.decodeByteArray(d, 0, d.length);
+        }
+        if (mode == 4) { // butun qog'oz kengligi 384 px, oq fon
+            Bitmap c = Bitmap.createBitmap(384, h + 8, Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas cv = new android.graphics.Canvas(c);
+            cv.drawColor(Color.WHITE); cv.drawBitmap(b, (384 - w) / 2, 4, null);
+            return c;
+        }
+        return b;
+    }
+
     /** lines: [{"t":"matn","s":2,"p":"center","b":1}, ...]. Muvaffaqiyatli bo'lsa null, aks holda xato matni. */
     public static synchronized String print(Context ctx, JSONArray lines) {
         try {
@@ -95,7 +123,7 @@ public class Printer {
                     o.put("content-type", "jpg");
                     o.put("position", l.optString("p", "center"));
                     arr.put(o);
-                    bmps.add(qr(l.getString("q"), 240));
+                    bmps.add(variant(l.getString("q"), l.optInt("m", 0)));
                     continue;
                 }
                 o.put("content-type", "txt");
