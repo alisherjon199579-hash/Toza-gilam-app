@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(24, 24, 24, 24);
         TextView t = new TextView(this);
-        t.setText("Toza Gilam Chek v2 (QR bilan)\nCRM'da \"Yetkazildi\" bosilganda chek shu terminaldan chiqadi.");
+        t.setText("Toza Gilam Chek v3 (QR rasm)\nCRM'da \"Yetkazildi\" bosilganda chek shu terminaldan chiqadi.");
         t.setTextSize(16);
         root.addView(t);
         url = new EditText(this);

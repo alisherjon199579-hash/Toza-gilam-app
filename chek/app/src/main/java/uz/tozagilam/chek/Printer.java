@@ -1,6 +1,18 @@
 package uz.tozagilam.chek;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -33,20 +45,36 @@ public class Printer {
         printer = p;
     }
 
+    /** Qora-oq QR rasm (termal printer uchun) */
+    static Bitmap qr(String text, int px) throws Exception {
+        EnumMap<EncodeHintType, Object> h = new EnumMap<EncodeHintType, Object>(EncodeHintType.class);
+        h.put(EncodeHintType.MARGIN, 1);
+        h.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.L);
+        BitMatrix m = new QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, px, px, h);
+        int w = m.getWidth(), ht = m.getHeight();
+        int[] pix = new int[w * ht];
+        for (int y = 0; y < ht; y++)
+            for (int x = 0; x < w; x++)
+                pix[y * w + x] = m.get(x, y) ? Color.BLACK : Color.WHITE;
+        Bitmap b = Bitmap.createBitmap(w, ht, Bitmap.Config.ARGB_8888);
+        b.setPixels(pix, 0, w, 0, 0, w, ht);
+        return b;
+    }
+
     /** lines: [{"t":"matn","s":2,"p":"center","b":1}, ...]. Muvaffaqiyatli bo'lsa null, aks holda xato matni. */
     public static synchronized String print(Context ctx, JSONArray lines) {
         try {
             init(ctx);
             JSONArray arr = new JSONArray();
+            List<Bitmap> bmps = new ArrayList<Bitmap>();
             for (int i = 0; i < lines.length(); i++) {
                 JSONObject l = lines.getJSONObject(i);
                 JSONObject o = new JSONObject();
                 if (l.has("q")) {
-                    o.put("content-type", "two-dimension");
-                    o.put("content", l.getString("q"));
-                    o.put("size", String.valueOf(l.optInt("s", 6)));
+                    o.put("content-type", "jpg");
                     o.put("position", l.optString("p", "center"));
                     arr.put(o);
+                    bmps.add(qr(l.getString("q"), 256));
                     continue;
                 }
                 o.put("content-type", "txt");
@@ -82,7 +110,7 @@ public class Printer {
                     return null;
                 }
             });
-            pm.invoke(printer, root.toString(), null, lis);
+            pm.invoke(printer, root.toString(), bmps.isEmpty() ? null : bmps.toArray(new Bitmap[0]), lis);
             if (!done.await(40, TimeUnit.SECONDS)) return "printer javob bermadi";
             return err[0];
         } catch (Throwable t) {
