@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(24, 24, 24, 24);
         TextView t = new TextView(this);
-        t.setText("Toza Gilam Chek v6 (QR sinov 2)\nCRM'da \"Yetkazildi\" bosilganda chek shu terminaldan chiqadi.");
+        t.setText("Toza Gilam Chek v7\nCRM'da \"Yetkazildi\" bosilganda chek shu terminaldan chiqadi.");
         t.setTextSize(16);
         root.addView(t);
         url = new EditText(this);
@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
         });
         root.addView(save);
         Button test = new Button(this);
-        test.setText("Sinov chek (QR bilan)");
+        test.setText("Sinov chek");
         test.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 new Thread(new Runnable() { public void run() {
@@ -56,15 +56,6 @@ public class MainActivity extends Activity {
                         JSONArray a = new JSONArray();
                         a.put(new JSONObject().put("t", "TOZA GILAM").put("s", 3).put("p", "center").put("b", 1));
                         a.put(new JSONObject().put("t", "Sinov cheki - printer ishlayapti").put("s", 2).put("p", "center"));
-                        String U = "https://www.instagram.com/gilam_yuvish_korxonasii";
-                        a.put(new JSONObject().put("t", "A: rasm").put("s", 2).put("p", "center"));
-                        a.put(new JSONObject().put("q", U).put("m", 0).put("p", "center"));
-                        a.put(new JSONObject().put("t", "B: rasm 384").put("s", 2).put("p", "center"));
-                        a.put(new JSONObject().put("q", U).put("m", 4).put("p", "center"));
-                        a.put(new JSONObject().put("t", "C: kod 6").put("s", 2).put("p", "center"));
-                        a.put(new JSONObject().put("d", U).put("s", 6).put("p", "center"));
-                        a.put(new JSONObject().put("t", "D: kod 8").put("s", 2).put("p", "center"));
-                        a.put(new JSONObject().put("d", U).put("s", 8).put("p", "center"));
                         a.put(new JSONObject().put("t", "@gilam_yuvish_korxonasii").put("s", 2).put("p", "center"));
                         String e = Printer.print(MainActivity.this, a);
                         Cfg.status(MainActivity.this, e == null ? "sinov chek chiqdi" : "XATO: " + e);

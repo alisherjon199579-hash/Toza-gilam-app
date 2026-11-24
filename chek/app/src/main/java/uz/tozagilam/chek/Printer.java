@@ -96,10 +96,8 @@ public class Printer {
             java.util.List<JSONArray> parts = new ArrayList<JSONArray>();
             for (int i = 0; i < lines.length(); i++) {
                 JSONObject l = lines.getJSONObject(i);
-                if (l.has("q") || l.has("d")) {
-                    if (cur.length() > 0) { parts.add(cur); cur = new JSONArray(); }
-                    JSONArray one = new JSONArray(); one.put(l); parts.add(one);
-                } else cur.put(l);
+                if (l.has("q") || l.has("d")) continue; // bu printer rasm chiqarmaydi
+                cur.put(l);
             }
             if (cur.length() > 0) parts.add(cur);
             for (int i = 0; i < parts.size(); i++) {
