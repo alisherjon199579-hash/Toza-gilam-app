@@ -7,7 +7,7 @@ import os, secrets, shutil, subprocess, sys, time, urllib.request
 
 D = os.environ.get('GILAM_CHEK_DIR', '/opt/gilam-chek')
 PORT = os.environ.get('GILAM_CHEK_PORT', '8090')
-BASE = os.environ.get('GILAM_CHEK_URL', 'https://raw.githubusercontent.com/alisherjon199579-hash/toza-gilam-app/5b1ef5b7f4dc3cc45082bf719c39da4f97c0323e/server/')
+BASE = os.environ.get('GILAM_CHEK_URL', 'https://raw.githubusercontent.com/alisherjon199579-hash/toza-gilam-app/c35b7cb2ebaa9905b22100ca3d05169849da5a13/server/')
 TEST = bool(os.environ.get('GILAM_CHEK_TEST'))
 SRC = os.environ.get('GILAM_CHEK_SRC')
 
