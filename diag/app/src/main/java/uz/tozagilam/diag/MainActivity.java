@@ -356,14 +356,18 @@ public class MainActivity extends Activity {
 
     private void bwRun() throws Exception {
         try {
-            StringBuilder pl = new StringBuilder();
-            for (android.content.pm.PermissionInfo pi : getPackageManager().queryPermissionsByGroup(null, 0)) {
-                if (pi.name.startsWith("com.pos") || pi.name.contains("basewin")) {
-                    boolean g = checkPermission(pi.name, android.os.Process.myPid(), android.os.Process.myUid()) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-                    pl.append(pi.name).append(" L").append(pi.protectionLevel & 15).append(g ? " BOR" : " YOQ").append("\n");
+            java.util.TreeSet<String> names = new java.util.TreeSet<String>();
+            for (android.content.pm.PackageInfo pk : getPackageManager().getInstalledPackages(android.content.pm.PackageManager.GET_PERMISSIONS)) {
+                if (pk.permissions == null) continue;
+                for (android.content.pm.PermissionInfo pi : pk.permissions) {
+                    if (pi.name.startsWith("com.pos") || pi.name.contains("basewin") || pi.name.contains("smartpeak"))
+                        names.add(pi.name.replace("com.pos.permission.", "P.") + ":" + (pi.protectionLevel & 15) + "@" + pk.packageName.replace("com.", ""));
                 }
             }
-            bwlog("Ruxsatlar:\n" + pl);
+            bwlog("RUXSATLAR (" + names.size() + "):");
+            StringBuilder pl = new StringBuilder();
+            for (String n : names) pl.append(n).append("  ");
+            bwlog(pl.toString());
         } catch (Throwable t) { bwlog("ruxsat ro'yxati: " + t); }
         Context pc = createPackageContext("com.basewin.printdemo", Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
         ClassLoader cl = pc.getClassLoader();
