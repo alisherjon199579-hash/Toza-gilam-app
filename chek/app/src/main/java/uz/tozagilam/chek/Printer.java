@@ -96,14 +96,16 @@ public class Printer {
             java.util.List<JSONArray> parts = new ArrayList<JSONArray>();
             for (int i = 0; i < lines.length(); i++) {
                 JSONObject l = lines.getJSONObject(i);
-                if (l.has("q")) {
+                if (l.has("q") || l.has("d")) {
                     if (cur.length() > 0) { parts.add(cur); cur = new JSONArray(); }
                     JSONArray one = new JSONArray(); one.put(l); parts.add(one);
                 } else cur.put(l);
             }
             if (cur.length() > 0) parts.add(cur);
             for (int i = 0; i < parts.size(); i++) {
-                String e = printPart(ctx, parts.get(i), i == parts.size() - 1 ? 3 : 0);
+                JSONObject f0 = parts.get(i).getJSONObject(0);
+                boolean img = f0.has("q") || f0.has("d");
+                String e = printPart(ctx, parts.get(i), i == parts.size() - 1 ? 3 : 0, img ? 2000 : 1000, img ? 2 : 1);
                 if (e != null) return e;
                 try { Thread.sleep(300); } catch (Exception x) { }
             }
@@ -111,7 +113,7 @@ public class Printer {
         } catch (Throwable t) { return String.valueOf(t); }
     }
 
-    static String printPart(Context ctx, JSONArray lines, int feed) {
+    static String printPart(Context ctx, JSONArray lines, int feed, int gray, int space) {
         try {
             init(ctx);
             JSONArray arr = new JSONArray();
@@ -119,6 +121,14 @@ public class Printer {
             for (int i = 0; i < lines.length(); i++) {
                 JSONObject l = lines.getJSONObject(i);
                 JSONObject o = new JSONObject();
+                if (l.has("d")) {
+                    o.put("content-type", "two-dimension");
+                    o.put("content", l.getString("d"));
+                    o.put("size", String.valueOf(l.optInt("s", 6)));
+                    o.put("position", l.optString("p", "center"));
+                    arr.put(o);
+                    continue;
+                }
                 if (l.has("q")) {
                     o.put("content-type", "jpg");
                     o.put("position", l.optString("p", "center"));
@@ -139,8 +149,8 @@ public class Printer {
             JSONObject root = new JSONObject();
             root.put("spos", arr);
             Class<?> pcl = printer.getClass();
-            try { pcl.getMethod("setPrintGray", int.class).invoke(printer, 1000); } catch (Throwable t) { }
-            try { pcl.getMethod("setLineSpace", int.class).invoke(printer, 1); } catch (Throwable t) { }
+            try { pcl.getMethod("setPrintGray", int.class).invoke(printer, gray); } catch (Throwable t) { }
+            try { pcl.getMethod("setLineSpace", int.class).invoke(printer, space); } catch (Throwable t) { }
             try { pcl.getMethod("printBottomFeedLine", int.class).invoke(printer, feed); } catch (Throwable t) { }
             Method pm = null;
             for (Method m : pcl.getMethods())
