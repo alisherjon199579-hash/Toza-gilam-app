@@ -64,6 +64,27 @@ public class Printer {
     /** lines: [{"t":"matn","s":2,"p":"center","b":1}, ...]. Muvaffaqiyatli bo'lsa null, aks holda xato matni. */
     public static synchronized String print(Context ctx, JSONArray lines) {
         try {
+            JSONArray cur = new JSONArray();
+            java.util.List<JSONArray> parts = new ArrayList<JSONArray>();
+            for (int i = 0; i < lines.length(); i++) {
+                JSONObject l = lines.getJSONObject(i);
+                if (l.has("q")) {
+                    if (cur.length() > 0) { parts.add(cur); cur = new JSONArray(); }
+                    JSONArray one = new JSONArray(); one.put(l); parts.add(one);
+                } else cur.put(l);
+            }
+            if (cur.length() > 0) parts.add(cur);
+            for (int i = 0; i < parts.size(); i++) {
+                String e = printPart(ctx, parts.get(i), i == parts.size() - 1 ? 3 : 0);
+                if (e != null) return e;
+                try { Thread.sleep(300); } catch (Exception x) { }
+            }
+            return null;
+        } catch (Throwable t) { return String.valueOf(t); }
+    }
+
+    static String printPart(Context ctx, JSONArray lines, int feed) {
+        try {
             init(ctx);
             JSONArray arr = new JSONArray();
             List<Bitmap> bmps = new ArrayList<Bitmap>();
@@ -74,7 +95,7 @@ public class Printer {
                     o.put("content-type", "jpg");
                     o.put("position", l.optString("p", "center"));
                     arr.put(o);
-                    bmps.add(qr(l.getString("q"), 256));
+                    bmps.add(qr(l.getString("q"), 240));
                     continue;
                 }
                 o.put("content-type", "txt");
@@ -92,7 +113,7 @@ public class Printer {
             Class<?> pcl = printer.getClass();
             try { pcl.getMethod("setPrintGray", int.class).invoke(printer, 1000); } catch (Throwable t) { }
             try { pcl.getMethod("setLineSpace", int.class).invoke(printer, 1); } catch (Throwable t) { }
-            try { pcl.getMethod("printBottomFeedLine", int.class).invoke(printer, 3); } catch (Throwable t) { }
+            try { pcl.getMethod("printBottomFeedLine", int.class).invoke(printer, feed); } catch (Throwable t) { }
             Method pm = null;
             for (Method m : pcl.getMethods())
                 if (m.getName().equals("print") && m.getParameterTypes().length == 3) { pm = m; break; }
