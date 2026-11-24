@@ -110,7 +110,7 @@ def build(o, no_label=None):
         lines.append(L("To'langan: %s" % money(paid_sum)))
         lines.append(L('Qoldi: %s' % money(total - paid_sum)))
     lines.append(L('-' * W))
-    lines.append(L('Bizni tanlaganingiz uchun rahmat!', 2, 'center'))
+    lines.append(L('Bizni tanlaganingiz uchun rahmat', 2, 'center'))
     lines.append(L('Tel: %s' % PHONE, 2, 'center'))
     lines.append(L('Hisob-kvitansiya (fiskal emas)', 1, 'center'))
     return lines
