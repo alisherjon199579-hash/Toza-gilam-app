@@ -351,7 +351,7 @@ public class MainActivity extends Activity {
     private void basewinPrint() {
         bw = new StringBuilder();
         tv.setText("Basewin: ulanilmoqda…");
-        new Thread(new Runnable() { public void run() { try { bwRun(); } catch (Throwable t) { bwlog("XATO: " + t); Throwable c = t.getCause(); if (c != null) bwlog("sabab: " + c); } } }).start();
+        new Thread(new Runnable() { public void run() { try { bwRun(); } catch (Throwable t) { bwlog("XATO:"); Throwable c = t; int d = 0; while (c != null && d++ < 6) { bwlog("> " + c); StackTraceElement[] st = c.getStackTrace(); for (int i = 0; i < st.length && i < 5; i++) bwlog("    " + st[i]); c = c.getCause(); } } } }).start();
     }
 
     private void bwRun() throws Exception {
