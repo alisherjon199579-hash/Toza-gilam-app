@@ -30,6 +30,11 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
@@ -61,7 +66,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         hs.addView(bar);
         root.addView(hs);
-        String[] names = {"1 Ilovalar", "2 Qurilma", "3 Xizmatlar", "4 USB/BT", "5 Ulanish sinovi", "6 Chek sinovi", "Nusxa", "Faylga"};
+        String[] names = {"1 Ilovalar", "2 Qurilma", "3 Xizmatlar", "4 USB/BT", "5 Ulanish sinovi", "6 Chek sinovi", "7 Basewin chek", "8 Internet", "Nusxa", "Faylga"};
         for (final String n : names) {
             Button bt = new Button(this);
             bt.setText(n);
@@ -96,6 +101,8 @@ public class MainActivity extends Activity {
         else if (n.startsWith("4")) show("USB/BT");
         else if (n.startsWith("5")) bindTest();
         else if (n.startsWith("6")) serialTest();
+        else if (n.startsWith("7")) basewinPrint();
+        else if (n.startsWith("8")) netTest();
         else if (n.equals("Nusxa")) copyAll();
         else if (n.equals("Faylga")) saveAll();
     }
@@ -332,5 +339,109 @@ public class MainActivity extends Activity {
         o.append("\nQog'oz chiqsa, qaysi qator yozilganini ayting.");
         sections.put("Chek sinovi", o.toString());
         tv.setText(o);
+    }
+
+    // ---- Basewin SDK orqali chek chiqarish (com.basewin.printdemo ilovasining kutubxonasidan foydalanib)
+    private StringBuilder bw;
+
+    private void bwlog(final String t) {
+        ui.post(new Runnable() { public void run() { bw.append(t).append("\n"); tv.setText(bw); sections.put("Basewin chek", bw.toString()); } });
+    }
+
+    private void basewinPrint() {
+        bw = new StringBuilder();
+        tv.setText("Basewin: ulanilmoqda…");
+        new Thread(new Runnable() { public void run() { try { bwRun(); } catch (Throwable t) { bwlog("XATO: " + t); Throwable c = t.getCause(); if (c != null) bwlog("sabab: " + c); } } }).start();
+    }
+
+    private void bwRun() throws Exception {
+        Context pc = createPackageContext("com.basewin.printdemo", Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+        ClassLoader cl = pc.getClassLoader();
+        Class<?> smC = cl.loadClass("com.basewin.services.ServiceManager");
+        bwlog("ServiceManager yuklandi");
+        Object sm = smC.getMethod("getInstence").invoke(null);
+        smC.getMethod("init", Context.class).invoke(sm, getApplicationContext());
+        bwlog("init() chaqirildi, 3 soniya kutilyapti…");
+        Thread.sleep(3000);
+        Object printer = smC.getMethod("getPrinter").invoke(sm);
+        if (printer == null) { bwlog("getPrinter() = null (xizmatga ulanmadi)"); return; }
+        bwlog("Printer: " + printer.getClass().getName());
+        StringBuilder ms = new StringBuilder();
+        for (Method m : printer.getClass().getMethods()) {
+            if (m.getDeclaringClass() == Object.class) continue;
+            ms.append(m.getName()).append("(");
+            Class<?>[] pt = m.getParameterTypes();
+            for (int i = 0; i < pt.length; i++) ms.append(i > 0 ? "," : "").append(pt[i].getSimpleName());
+            ms.append(") ");
+        }
+        bwlog("Metodlar: " + ms);
+        try { printer.getClass().getMethod("setPrintGray", int.class).invoke(printer, 1000); } catch (Throwable t) { bwlog("setPrintGray: " + t); }
+        try { printer.getClass().getMethod("setLineSpace", int.class).invoke(printer, 1); } catch (Throwable t) { bwlog("setLineSpace: " + t); }
+        org.json.JSONArray arr = new org.json.JSONArray();
+        String[][] lines = {
+                {"TOZA GILAM", "3", "center", "1"},
+                {"Gilam yuvish xizmati", "2", "center", "0"},
+                {"--------------------------------", "2", "left", "0"},
+                {"Chek sinovi", "2", "left", "0"},
+                {"Gilam 6 m2 x 12 000 = 72 000", "2", "left", "0"},
+                {"Chegirma 10%: -7 200", "2", "left", "0"},
+                {"JAMI: 64 800 som", "3", "left", "1"},
+                {"--------------------------------", "2", "left", "0"},
+                {"Rahmat! Tel: +998 91 921 37 89", "2", "center", "0"}};
+        for (String[] l : lines) {
+            org.json.JSONObject o = new org.json.JSONObject();
+            o.put("content-type", "txt");
+            o.put("content", l[0]);
+            o.put("size", l[1]);
+            o.put("position", l[2]);
+            o.put("offset", "0");
+            o.put("bold", l[3]);
+            o.put("italic", "0");
+            o.put("height", "-1");
+            arr.put(o);
+        }
+        org.json.JSONObject root = new org.json.JSONObject();
+        root.put("spos", arr);
+        try { printer.getClass().getMethod("printBottomFeedLine", int.class).invoke(printer, 3); } catch (Throwable t) { bwlog("printBottomFeedLine: " + t); }
+        Method pm = null;
+        for (Method m : printer.getClass().getMethods()) if (m.getName().equals("print") && m.getParameterTypes().length == 3) { pm = m; break; }
+        if (pm == null) { bwlog("print(3 parametr) topilmadi"); return; }
+        Class<?>[] pt = pm.getParameterTypes();
+        Object lis = null;
+        if (pt[2].isInterface()) {
+            lis = Proxy.newProxyInstance(cl, new Class<?>[]{pt[2]}, new InvocationHandler() {
+                public Object invoke(Object proxy, Method method, Object[] args) {
+                    String a = "";
+                    if (args != null) for (Object x : args) a += " " + x;
+                    bwlog("callback: " + method.getName() + a);
+                    return null;
+                }
+            });
+        }
+        bwlog("print(" + pt[0].getSimpleName() + "," + pt[1].getSimpleName() + "," + pt[2].getSimpleName() + ") chaqirilmoqda…");
+        pm.invoke(printer, root.toString(), null, lis);
+        bwlog("print() chaqirildi. Qog'oz chiqdimi?");
+    }
+
+    // ---- Internet / HTTPS tekshiruvi
+    private void netTest() {
+        tv.setText("Internet tekshirilmoqda…");
+        new Thread(new Runnable() {
+            public void run() {
+                final StringBuilder o = new StringBuilder();
+                String[] urls = {"https://162-250-122-181.sslip.io", "https://github.com", "https://www.google.com", "http://example.com"};
+                for (String u : urls) {
+                    try {
+                        HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+                        c.setConnectTimeout(8000);
+                        c.setReadTimeout(8000);
+                        c.setInstanceFollowRedirects(false);
+                        o.append(u).append(" -> HTTP ").append(c.getResponseCode()).append("\n");
+                    } catch (Throwable t) { o.append(u).append(" -> XATO ").append(t).append("\n"); }
+                }
+                o.append("\nAndroid API ").append(Build.VERSION.SDK_INT);
+                ui.post(new Runnable() { public void run() { sections.put("Internet", o.toString()); tv.setText(o); } });
+            }
+        }).start();
     }
 }

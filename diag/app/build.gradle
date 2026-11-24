@@ -14,8 +14,18 @@ android {
         versionName "1.0"
     }
 
+    signingConfigs {
+        shared {
+            storeFile file('kuryer.p12')
+            storeType 'pkcs12'
+            storePassword 'tozagilam'
+            keyAlias 'kuryer'
+            keyPassword 'tozagilam'
+        }
+    }
+
     buildTypes {
-        debug { }
+        debug { signingConfig signingConfigs.shared }
     }
 
     lint {
