@@ -355,6 +355,16 @@ public class MainActivity extends Activity {
     }
 
     private void bwRun() throws Exception {
+        try {
+            StringBuilder pl = new StringBuilder();
+            for (android.content.pm.PermissionInfo pi : getPackageManager().queryPermissionsByGroup(null, 0)) {
+                if (pi.name.startsWith("com.pos") || pi.name.contains("basewin")) {
+                    boolean g = checkPermission(pi.name, android.os.Process.myPid(), android.os.Process.myUid()) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                    pl.append(pi.name).append(" L").append(pi.protectionLevel & 15).append(g ? " BOR" : " YOQ").append("\n");
+                }
+            }
+            bwlog("Ruxsatlar:\n" + pl);
+        } catch (Throwable t) { bwlog("ruxsat ro'yxati: " + t); }
         Context pc = createPackageContext("com.basewin.printdemo", Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
         ClassLoader cl = pc.getClassLoader();
         Class<?> smC = cl.loadClass("com.basewin.services.ServiceManager");

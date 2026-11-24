@@ -2,6 +2,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.pos.permission.SECURITY" />
+    <uses-permission android:name="com.pos.permission.PRINTER" />
+    <uses-permission android:name="com.pos.permission.ACCESSORY" />
+    <uses-permission android:name="com.pos.permission.COMMUNICATION" />
+    <uses-permission android:name="com.pos.permission.CARD_READER" />
+    <uses-permission android:name="com.pos.permission.PINPAD" />
+    <uses-permission android:name="com.pos.permission.DEVICE_INFO" />
+    <uses-permission android:name="com.pos.permission.EMV" />
+    <uses-permission android:name="com.pos.permission.MAGCARD" />
+    <uses-permission android:name="com.pos.permission.ICCARD" />
+    <uses-permission android:name="com.pos.permission.RFCARD" />
+    <uses-permission android:name="com.pos.permission.SYSTEM" />
+    <uses-permission android:name="com.pos.permission.SERIAL" />
+    <uses-permission android:name="com.pos.permission.DATABASE" />
+    <uses-permission android:name="com.pos.permission.SCANNER" />
+    <uses-permission android:name="com.pos.permission.BEEPER" />
+    <uses-permission android:name="com.pos.permission.LED" />
+    <uses-permission android:name="com.basewin.permission.SECURITY" />
+
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <application
