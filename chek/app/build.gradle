@@ -1,0 +1,34 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'uz.tozagilam.chek'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'uz.tozagilam.chek'
+        minSdk 21
+        targetSdk 22
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        shared {
+            storeFile file('kuryer.p12')
+            storeType 'pkcs12'
+            storePassword 'tozagilam'
+            keyAlias 'kuryer'
+            keyPassword 'tozagilam'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.shared }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
