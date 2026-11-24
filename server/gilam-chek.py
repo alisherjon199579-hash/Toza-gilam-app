@@ -22,7 +22,7 @@ TOKEN = os.environ.get('CHEK_TOKEN') or ENV.get('TOKEN', '')
 CRM_DB = os.environ.get('CRM_DB') or os.path.join(os.environ.get('CRM_DATA', '/var/lib/gilam-crm'), 'crm.db')
 ST_DB = os.environ.get('CHEK_STATE') or os.path.join(HERE, 'chek-state.db')
 SHOP = os.environ.get('CHEK_SHOP', 'TOZA GILAM')
-PHONE = os.environ.get('CHEK_PHONE', '+998 91 921 37 89')
+PHONE = os.environ.get('CHEK_PHONE', '+998 93 841 89 00')
 TZ = timezone(timedelta(hours=5))
 W = 32
 LOCK = threading.Lock()
@@ -110,7 +110,8 @@ def build(o, no_label=None):
         lines.append(L("To'langan: %s" % money(paid_sum)))
         lines.append(L('Qoldi: %s' % money(total - paid_sum)))
     lines.append(L('-' * W))
-    lines.append(L('Rahmat! Tel: %s' % PHONE, 2, 'center'))
+    lines.append(L('Bizni tanlaganingiz uchun rahmat!', 2, 'center'))
+    lines.append(L('Tel: %s' % PHONE, 2, 'center'))
     lines.append(L('Hisob-kvitansiya (fiskal emas)', 1, 'center'))
     return lines
 
