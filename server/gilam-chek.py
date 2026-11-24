@@ -23,6 +23,7 @@ CRM_DB = os.environ.get('CRM_DB') or os.path.join(os.environ.get('CRM_DATA', '/v
 ST_DB = os.environ.get('CHEK_STATE') or os.path.join(HERE, 'chek-state.db')
 SHOP = os.environ.get('CHEK_SHOP', 'TOZA GILAM')
 PHONE = os.environ.get('CHEK_PHONE', '+998 93 841 89 00')
+IG_NAME = os.environ.get('CHEK_IG', 'gilam_yuvish_korxonasii')
 TZ = timezone(timedelta(hours=5))
 W = 32
 LOCK = threading.Lock()
@@ -112,6 +113,9 @@ def build(o, no_label=None):
     lines.append(L('-' * W))
     lines.append(L('Bizni tanlaganingiz uchun rahmat', 2, 'center'))
     lines.append(L('Tel: %s' % PHONE, 2, 'center'))
+    lines.append(L('Instagram sahifamiz:', 2, 'center'))
+    lines.append({'q': 'https://www.instagram.com/%s' % IG_NAME, 's': 6, 'p': 'center'})
+    lines.append(L('@' + IG_NAME, 2, 'center'))
     lines.append(L('Hisob-kvitansiya (fiskal emas)', 1, 'center'))
     return lines
 

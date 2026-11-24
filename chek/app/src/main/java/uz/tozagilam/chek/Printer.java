@@ -41,6 +41,14 @@ public class Printer {
             for (int i = 0; i < lines.length(); i++) {
                 JSONObject l = lines.getJSONObject(i);
                 JSONObject o = new JSONObject();
+                if (l.has("q")) {
+                    o.put("content-type", "two-dimension");
+                    o.put("content", l.getString("q"));
+                    o.put("size", String.valueOf(l.optInt("s", 6)));
+                    o.put("position", l.optString("p", "center"));
+                    arr.put(o);
+                    continue;
+                }
                 o.put("content-type", "txt");
                 o.put("content", l.optString("t", ""));
                 o.put("size", String.valueOf(l.optInt("s", 2)));
