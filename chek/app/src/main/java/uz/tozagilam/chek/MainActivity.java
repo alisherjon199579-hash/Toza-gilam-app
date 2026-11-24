@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
         });
         root.addView(save);
         Button test = new Button(this);
-        test.setText("Sinov chek chiqarish");
+        test.setText("Sinov chek (QR bilan)");
         test.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 new Thread(new Runnable() { public void run() {
@@ -56,6 +56,8 @@ public class MainActivity extends Activity {
                         JSONArray a = new JSONArray();
                         a.put(new JSONObject().put("t", "TOZA GILAM").put("s", 3).put("p", "center").put("b", 1));
                         a.put(new JSONObject().put("t", "Sinov cheki - printer ishlayapti").put("s", 2).put("p", "center"));
+                        a.put(new JSONObject().put("q", "https://www.instagram.com/gilam_yuvish_korxonasii").put("s", 6).put("p", "center"));
+                        a.put(new JSONObject().put("t", "@gilam_yuvish_korxonasii").put("s", 2).put("p", "center"));
                         String e = Printer.print(MainActivity.this, a);
                         Cfg.status(MainActivity.this, e == null ? "sinov chek chiqdi" : "XATO: " + e);
                     } catch (Throwable e) { Cfg.status(MainActivity.this, "XATO: " + e); }
